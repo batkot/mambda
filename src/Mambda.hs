@@ -5,32 +5,24 @@ module Mambda
 
 import Data.List.NonEmpty as NE
 import Data.Bifunctor
+import Data.Semigroup
 
-data Direction 
-    = North
-    | South
-    | West
-    | East
-    deriving (Show, Eq)
-
-data Vec2 a = Vec2 a a deriving (Show, Eq)
-
-data Snake = Snake 
-    { direction :: Direction
-    , body :: NE.NonEmpty (Vec2 Int)
+data Snake a = Snake 
+    { velocity :: a
+    , body :: NE.NonEmpty a
     } deriving (Show, Eq)
 
-move :: Snake -> Snake
-move Snake{..} = Snake direction newBody
+move :: Semigroup a => Snake a -> Snake a
+move Snake{..} = Snake velocity newBody
   where
-    newHead = move' direction $ NE.head body
+    newHead = velocity <> NE.head body
     newBody = newHead :| NE.init body
 
-move' :: Num a => Direction -> Vec2 a -> Vec2 a
-move' North (Vec2 x y) = Vec2 x (y + 1)
-move' South (Vec2 x y) = Vec2 x (y - 1)
-move' East (Vec2 x y) = Vec2 (x + 1) y
-move' West (Vec2 x y) = Vec2 (x - 1) y
+grow :: Semigroup a => Snake a -> Snake a
+grow Snake{..} = Snake velocity newBody
+  where
+    newHead = velocity <> NE.head body
+    newBody = newHead <| body
 
-changeDirection :: Direction -> Snake -> Snake
-changeDirection dir snake = snake { direction = dir }
+changeDirection :: a -> Snake a -> Snake a
+changeDirection v snake = snake { velocity = v }
