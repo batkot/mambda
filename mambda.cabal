@@ -4,7 +4,7 @@ cabal-version: 2.2
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 98b0f6a8890df98ca3119ab9a8e6c77fb23efc34e4dfbf7153ca1f0a90f60594
+-- hash: 83417129223afb9f917a61fa13d3519bee1408c45744743cc9f720c6a34609d4
 
 name:           mambda
 version:        0.1.0.0
@@ -28,8 +28,8 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
-      Mambda
+      Mambda.Snake
+      Mambda.Worlds
   other-modules:
       Paths_mambda
   hs-source-dirs:
@@ -54,7 +54,7 @@ test-suite mambda-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Test.Mambda
+      Test.Mambda.Snake
       Paths_mambda
   hs-source-dirs:
       test

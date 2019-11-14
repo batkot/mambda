@@ -1,11 +1,11 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Test.Mambda
+module Test.Mambda.Snake
     ( test_tests
     )
     where
 
-import Mambda
+import Mambda.Snake
 
 import Data.List.NonEmpty as NE
 import Data.Semigroup
@@ -18,7 +18,7 @@ import Test.QuickCheck (Arbitrary(..), elements)
 type TestSemigroup = Sum Int
 
 test_tests :: TestTree
-test_tests = testGroup "Hasnakell"
+test_tests = testGroup "Snake"
     [ changeDirectionTests
     , moveTests
     , growTests

@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Mambda 
+module Mambda.Snake
     where
 
 import Data.List.NonEmpty as NE
