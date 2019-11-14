@@ -1,0 +1,44 @@
+name:                hasnakell
+version:             0.1.0.0
+github:              "batkot/hasnakell"
+license:             WTFPL
+author:              "Tomasz Batko"
+maintainer:          "batkot@protonmail.com"
+copyright:           "Tomasz Batko"
+
+extra-source-files:
+- README.md
+
+# Metadata used when publishing your package
+synopsis:            CLI Snake 
+category:            games
+
+description:         Please see the README on GitHub at <https://github.com/batkot/hasnakell#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+
+executables:
+  hasnakell:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hasnakell
+
+tests:
+  hasnakell-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hasnakell
