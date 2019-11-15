@@ -8,100 +8,85 @@ module Test.Mambda.Snake
 import Mambda.Snake
 
 import Data.List.NonEmpty as NE
-import Data.Semigroup
 
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 
 import Test.QuickCheck (Arbitrary(..), elements)
 
-type TestSemigroup = Sum Int
+type TestSnakeCell = Int
 
 test_tests :: TestTree
 test_tests = testGroup "Snake"
-    [ changeDirectionTests
-    , moveTests
-    , growTests
+    [ moveTests
     ]
 
 moveTests :: TestTree
 moveTests = testGroup "Move snake"
-    [ testProperty "Tail of body should take place of previous elements" move_snakesBodyInitShouldBecomeTail
-    , testProperty "Head should move according to current velocity" move_snakeHeadShouldMoveAccordingToSemigroup
-    , testProperty "Direction should not change" move_velocityShouldNotChange
+    [ testProperty "Head should be moved to given place" move_snakesHeadShouldMove
+    , testProperty "Grow count should be non negative number" move_growCountShouldBeNonNegative
+    , testGroup "Non growing move"
+        [ testProperty "Tail of body should take place of previous elements" move_snakesBodyInitShouldBecomeTail
+        , testProperty "Size of snake should remain constant" move_snakeBodyShouldStayTheSameSize
+        , testProperty "Grow count should remain 0" move_snakeGrowCountShouldRemainZero
+        ]
+    , testGroup "Growing move"
+        [ testProperty "Snake should grow in size" move_growingSnakeShouldIncreaseInSize
+        , testProperty "Snake grow count should decrease but not less then zero" move_growingSnakeGrowFactorShouldDecrease
+        , testProperty "Old snakes whole body should become new snakes tail" move_growingSnakeTailShouldbeWholeOldSnake
+        ]
     ]
 
-move_snakesBodyInitShouldBecomeTail :: Snake TestSemigroup -> Bool
-move_snakesBodyInitShouldBecomeTail snake =
-    (NE.init . body) snake == (NE.tail . body) newSnake
-  where
-    newSnake = move snake
+type SnakeMoveProperty snake = TestSnakeCell -> snake TestSnakeCell -> Bool
 
-move_snakeHeadShouldMoveAccordingToSemigroup :: Snake TestSemigroup -> Bool
-move_snakeHeadShouldMoveAccordingToSemigroup snake =
-    velocity snake <> (NE.head . body) snake == (NE.head . body) newSnake
-  where
-    newSnake = move snake
+move_snakesHeadShouldMove :: SnakeMoveProperty Snake
+move_snakesHeadShouldMove newHead snake = 
+    newHead == (NE.head . body . move newHead) snake
 
-move_velocityShouldNotChange :: Snake TestSemigroup -> Bool
-move_velocityShouldNotChange snake =
-    velocity snake == velocity newSnake
-  where
-    newSnake = move snake
+move_growCountShouldBeNonNegative :: SnakeMoveProperty Snake
+move_growCountShouldBeNonNegative newHead snake = 
+    (>=0) . growCount . move newHead $ snake
 
-growTests :: TestTree
-growTests = testGroup "Grow snake"
-    [ testProperty "Snake should be 1 piece longer" grow_snakeShouldGrow
-    , testProperty "Tail of new snake should be whole old snake body" grow_newSnakeTailShouldBeOldSnakesBody
-    , testProperty "Head should move according to current velocity" grow_headShouldMoveAccordingToSemigroup
-    , testProperty "Velocity should not change" grow_velocityShouldNotChange
-    ]
+move_snakesBodyInitShouldBecomeTail :: SnakeMoveProperty NonGrowingSnake
+move_snakesBodyInitShouldBecomeTail newHead (NonGrowingSnake snake) = 
+    (NE.init . body) snake == (NE.tail . body . move newHead) snake
 
-grow_snakeShouldGrow :: Snake TestSemigroup -> Bool
-grow_snakeShouldGrow snake = 
-    ((+1) . NE.length . body) snake == (NE.length . body) newSnake
-  where
-    newSnake = grow snake
+move_snakeBodyShouldStayTheSameSize :: SnakeMoveProperty NonGrowingSnake
+move_snakeBodyShouldStayTheSameSize newHead (NonGrowingSnake snake) =
+    (NE.length . body) snake == (NE.length . body . move newHead) snake
 
-grow_newSnakeTailShouldBeOldSnakesBody :: Snake TestSemigroup -> Bool
-grow_newSnakeTailShouldBeOldSnakesBody snake = 
-    (NE.toList . body) snake == (NE.tail . body) newSnake
-  where
-    newSnake = grow snake
+move_snakeGrowCountShouldRemainZero :: SnakeMoveProperty NonGrowingSnake
+move_snakeGrowCountShouldRemainZero newHead (NonGrowingSnake snake) = 
+    (==) 0 . growCount . move newHead $ snake
 
-grow_headShouldMoveAccordingToSemigroup :: Snake TestSemigroup -> Bool
-grow_headShouldMoveAccordingToSemigroup snake = 
-    velocity snake <> (NE.head . body) snake == (NE.head . body) newSnake
-  where
-    newSnake = grow snake
+move_growingSnakeShouldIncreaseInSize :: SnakeMoveProperty GrowingSnake
+move_growingSnakeShouldIncreaseInSize newHead (GrowingSnake snake) = 
+    ((+1) . NE.length . body) snake == (NE.length . body . move newHead) snake
 
-grow_velocityShouldNotChange :: Snake TestSemigroup -> Bool
-grow_velocityShouldNotChange snake =
-    velocity snake == velocity newSnake
-  where
-    newSnake = grow snake
+move_growingSnakeGrowFactorShouldDecrease :: SnakeMoveProperty GrowingSnake
+move_growingSnakeGrowFactorShouldDecrease newHead (GrowingSnake snake) =
+    growCount snake == ((+1) . growCount . move newHead) snake
 
-changeDirectionTests :: TestTree
-changeDirectionTests = testGroup "Change snake velocity"
-    [ testProperty "Should change velocity" changeDirection_ShouldChangeSnakeDirection
-    , testProperty "Should not change body" changeDirection_ShouldNotChangeSnakeBody
-    ]
-
-changeDirection_ShouldChangeSnakeDirection :: TestSemigroup -> Snake TestSemigroup -> Bool
-changeDirection_ShouldChangeSnakeDirection dir snake =
-    dir == velocity newSnake
-  where
-    newSnake = changeDirection dir snake
-
-changeDirection_ShouldNotChangeSnakeBody :: TestSemigroup -> Snake TestSemigroup -> Bool
-changeDirection_ShouldNotChangeSnakeBody dir snake =
-    body snake == body newSnake
-  where
-    newSnake = changeDirection dir snake
-
+move_growingSnakeTailShouldbeWholeOldSnake :: SnakeMoveProperty GrowingSnake
+move_growingSnakeTailShouldbeWholeOldSnake newHead (GrowingSnake snake) =
+    (NE.toList . body) snake == (NE.tail . body . move newHead) snake
+    
 -- Arbitrary
 instance Arbitrary a => Arbitrary (Snake a) where
-    arbitrary = Snake <$> arbitrary <*> arbitrary
+    arbitrary = Snake <$> fmap abs arbitrary <*> arbitrary
 
 instance Arbitrary a => Arbitrary (NonEmpty a) where
     arbitrary = (:|) <$> arbitrary <*> arbitrary
+
+newtype NonGrowingSnake a = NonGrowingSnake { getNonGrowingSnake :: Snake a } deriving (Eq, Show)
+
+instance Arbitrary a => Arbitrary (NonGrowingSnake a) where
+    arbitrary = NonGrowingSnake . Snake 0 <$> arbitrary
+
+newtype GrowingSnake a = GrowingSnake { getGrowingSnake :: Snake a } deriving (Eq, Show)
+
+instance Arbitrary a => Arbitrary (GrowingSnake a) where
+    arbitrary = GrowingSnake <$> fmap increaseGrow arbitrary
+      where
+        increaseGrow (Snake g x) = Snake (g+1) x
+
