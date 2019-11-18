@@ -1,3 +1,7 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
 module Mambda 
     where
 
@@ -6,22 +10,35 @@ import Mambda.Snake
 data Game a d = Game 
     { snake :: Snake a
     , snakeDirection :: d
-    , worldTopology :: Topology a d
+    , worldGeometry :: Geometry a d
     }
 
-data Topology a d = Topology 
-    { moveDir :: d -> a -> a
-    }
+newtype Geometry a d = Geometry { moveDir :: d -> a -> a }
 
-data GameCommand a
-    = ChangeDirection a
-    | Tick
+data GameCommand a = ChangeDirection a
 
-updateState :: Game a d -> GameCommand d -> Game a d
-updateState game (ChangeDirection d) = game { snakeDirection = d }
-updateState (Game snake dir top) Tick = 
-    Game newSnake dir top
+processCommand :: Game a d -> GameCommand d -> Game a d
+processCommand game (ChangeDirection d) = game { snakeDirection = d }
+
+step :: Game a d -> Game a d
+step game@(Game snake dir geometry) = 
+    game { snake = newSnake } 
   where
-    moved = moveDir top dir $ getHead snake
+    moved = moveDir geometry dir $ getHead snake
     newSnake = move moved snake
 
+class Monad m => GameMonad m a d | d -> a where
+    getCommands :: m [GameCommand d]
+    renderGame :: Game a d -> m ()
+
+gameLoop 
+    :: GameMonad m a d 
+    => Game a d 
+    -> m (Game a d)
+gameLoop game = 
+    fmap (step . foldState) getCommands 
+    >>= \newState -> do
+        renderGame newState
+        gameLoop newState
+  where
+    foldState = foldl processCommand game

@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Test.Mambda.Snake
-    ( test_tests
+    ( test_snake
     )
     where
 
@@ -16,8 +16,8 @@ import Test.QuickCheck (Arbitrary(..), elements)
 
 type TestSnakeCell = Int
 
-test_tests :: TestTree
-test_tests = testGroup "Snake"
+test_snake :: TestTree
+test_snake = testGroup "Snake"
     [ moveTests
     ]
 
