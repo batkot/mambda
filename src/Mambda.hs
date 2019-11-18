@@ -31,6 +31,18 @@ class Monad m => GameMonad m a d | d -> a where
     getCommands :: m [GameCommand d]
     renderGame :: Game a d -> m ()
 
+startGame 
+    :: GameMonad m a d
+    => Geometry a d 
+    -> d
+    -> a
+    -> m (Game a d)
+startGame geometry initDir snakeInit =
+    gameLoop newGame
+  where
+    snake = createSnake snakeInit
+    newGame = Game snake initDir geometry
+
 gameLoop 
     :: GameMonad m a d 
     => Game a d 
