@@ -15,7 +15,7 @@ data Game a d = Game
 
 newtype Geometry a d = Geometry { moveDir :: d -> a -> a }
 
-data GameCommand a = ChangeDirection a
+data GameCommand a = ChangeDirection a deriving (Show,Eq)
 
 processCommand :: Game a d -> GameCommand d -> Game a d
 processCommand game (ChangeDirection d) = game { snakeDirection = d }
