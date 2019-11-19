@@ -11,7 +11,7 @@ data Snake a = Snake
     } deriving (Show, Eq)
 
 createSnake :: a -> Snake a
-createSnake a = Snake 3 $ a :| []
+createSnake a = Snake 2 $ a :| []
 
 getHead :: Snake a -> a
 getHead = NE.head . body

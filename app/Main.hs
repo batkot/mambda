@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -19,17 +20,31 @@ import System.IO (hSetEcho, stdin, hFlush, stdout, hReady, hSetBuffering, Buffer
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async 
 
+import Options.Applicative 
+
 main :: IO ()
-main = do
+main = execParser opts >>= run
+  where
+    opts = info (gameSettingsParser <**> helper)
+        ( fullDesc
+        <> progDesc "CLI classic Snake implementation"
+        <> header "Mambda")
+    run Settings{..} = fromMaybe sizeError $ game
+      where
+        sizeError = putStrLn "Game size has to be positive number"
+        game = startFlatGame <$> createPositiveInt mapHeight <*> createPositiveInt mapWidth
+        
+
+startFlatGame :: PositiveInt -> PositiveInt -> IO ()
+startFlatGame height width = do
     hSetEcho stdin False
     hSetBuffering stdin NoBuffering 
     hideCursor
     setTitle "Mambda"
-    fromMaybe (return ()) game
+    game
   where
-    pos10 = createPositiveInt 10
-    geo = fmap (\x -> createModulusFlatlandGeometry x x) pos10
-    game = fmap (\g -> void (startGame g South (1,1))) geo
+    geo = createModulusFlatlandGeometry height width
+    game = void $ startGame geo South (1,1)
 
 type Game2D = Game Vec2D Direction2D
 
@@ -43,6 +58,28 @@ instance GameMonad IO Vec2D Direction2D where
         renderTile (x,y) = do
             setCursorPosition x y
             putStr "#"
+-- Settings
+data Settings = Settings
+    { mapHeight :: Int
+    , mapWidth :: Int
+    }
+
+gameSettingsParser :: Parser Settings
+gameSettingsParser = Settings 
+    <$> option auto
+        ( long "height"
+        <> short 'h'
+        <> showDefault
+        <> value 20 
+        <> help "Height of game world"
+        )
+    <*> option auto
+        ( long "width"
+        <> short 'w'
+        <> showDefault
+        <> value 30 
+        <> help "Width of game world"
+        )
 
 -- Input
 type Fps = Int
