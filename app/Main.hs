@@ -33,7 +33,6 @@ main = execParser opts >>= run
       where
         sizeError = putStrLn "Game size has to be positive number"
         game = startFlatGame <$> createPositiveInt mapHeight <*> createPositiveInt mapWidth
-        
 
 startFlatGame :: PositiveInt -> PositiveInt -> IO ()
 startFlatGame height width = do
@@ -58,6 +57,7 @@ instance GameMonad IO Vec2D Direction2D where
         renderTile (x,y) = do
             setCursorPosition x y
             putStr "#"
+
 -- Settings
 data Settings = Settings
     { mapHeight :: Int
@@ -99,8 +99,15 @@ readStdin = read' []
         if ready then getChar >>= \n -> read' (n:s) else return s
 
 mapControls :: Char -> Maybe (GameCommand Direction2D)
+-- WSAD
 mapControls 'w' = Just $ ChangeDirection North
 mapControls 's' = Just $ ChangeDirection South
 mapControls 'a' = Just $ ChangeDirection West
 mapControls 'd' = Just $ ChangeDirection East
+-- Vi controls
+mapControls 'k' = Just $ ChangeDirection North
+mapControls 'j' = Just $ ChangeDirection South
+mapControls 'h' = Just $ ChangeDirection West
+mapControls 'l' = Just $ ChangeDirection East
+mapControls 'p' = Just TogglePause
 mapControls _ = Nothing

@@ -11,17 +11,23 @@ data Game a d = Game
     { snake :: Snake a
     , snakeDirection :: d
     , worldGeometry :: Geometry a d
+    , pause :: Bool
     }
 
 newtype Geometry a d = Geometry { moveDir :: d -> a -> a }
 
-data GameCommand a = ChangeDirection a deriving (Show,Eq)
+data GameCommand a 
+    = ChangeDirection a 
+    | TogglePause
+    deriving (Show,Eq)
 
 processCommand :: Game a d -> GameCommand d -> Game a d
 processCommand game (ChangeDirection d) = game { snakeDirection = d }
+processCommand game@Game{ pause = pause } TogglePause = game { pause = not pause }
 
 step :: Game a d -> Game a d
-step game@(Game snake dir geometry) = 
+step game@(Game _ _ _ True) = game
+step game@(Game snake dir geometry False) = 
     game { snake = newSnake } 
   where
     moved = moveDir geometry dir $ getHead snake
@@ -41,7 +47,7 @@ startGame geometry initDir snakeInit =
     gameLoop newGame
   where
     snake = createSnake snakeInit
-    newGame = Game snake initDir geometry
+    newGame = Game snake initDir geometry False
 
 gameLoop 
     :: GameMonad m a d 
