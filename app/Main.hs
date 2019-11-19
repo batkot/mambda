@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Main where
 
@@ -9,6 +10,8 @@ import Mambda
 import Mambda.Snake
 import Mambda.Flatland
 import Mambda.Utils
+
+import Options 
 
 import Data.Maybe (maybeToList, fromMaybe, mapMaybe)
 import Data.List (nub)
@@ -20,66 +23,48 @@ import System.IO (hSetEcho, stdin, hFlush, stdout, hReady, hSetBuffering, Buffer
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async 
 
-import Options.Applicative 
+import Control.Monad.Trans.Reader (ReaderT(..), ask, runReaderT)
+import Control.Monad.Trans.Class (lift)
 
 main :: IO ()
-main = execParser opts >>= run
+main = parseSettings >>= run
   where
-    opts = info (gameSettingsParser <**> helper)
-        ( fullDesc
-        <> progDesc "CLI classic Snake implementation"
-        <> header "Mambda")
-    run Settings{..} = fromMaybe sizeError $ game
+    run settings@Settings{..} = fromMaybe sizeError $ x
       where
         sizeError = putStrLn "Game size has to be positive number"
         game = startFlatGame <$> createPositiveInt mapHeight <*> createPositiveInt mapWidth
+        x = runReaderT . runSnakeApp <$> game <*> pure settings
 
-startFlatGame :: PositiveInt -> PositiveInt -> IO ()
+startFlatGame :: PositiveInt -> PositiveInt -> SnakeApp ()
 startFlatGame height width = do
-    hSetEcho stdin False
-    hSetBuffering stdin NoBuffering 
-    hideCursor
-    setTitle "Mambda"
+    SnakeApp $ lift $ setupTerminal
     game
   where
+    setupTerminal = do
+        hSetEcho stdin False
+        hSetBuffering stdin NoBuffering 
+        hideCursor
+        setTitle "Mambda"
     geo = createModulusFlatlandGeometry height width
     game = void $ startGame geo South (1,1)
 
-type Game2D = Game Vec2D Direction2D
+newtype SnakeApp a = SnakeApp { runSnakeApp :: ReaderT Settings IO a }
+    deriving (Functor, Applicative, Monad)
 
-instance GameMonad IO Vec2D Direction2D where
-    getCommands = readCommands 3 
-    renderGame g = do 
-        clearScreen
-        mapM_ renderTile . body . snake $ g
-        hFlush stdout
+instance GameMonad SnakeApp Vec2D Direction2D where
+    getCommands = SnakeApp $ do
+        speed <- fps <$> ask 
+        lift $ readCommands speed
+    renderGame game = SnakeApp $ do
+        glyph <- snakeGlyph <$> ask
+        lift $ do
+            clearScreen
+            mapM_ (renderTile [glyph]). body . snake $ game
+            hFlush stdout
       where
-        renderTile (x,y) = do
+        renderTile g (x,y) = do
             setCursorPosition x y
-            putStr "#"
-
--- Settings
-data Settings = Settings
-    { mapHeight :: Int
-    , mapWidth :: Int
-    }
-
-gameSettingsParser :: Parser Settings
-gameSettingsParser = Settings 
-    <$> option auto
-        ( long "height"
-        <> short 'h'
-        <> showDefault
-        <> value 20 
-        <> help "Height of game world"
-        )
-    <*> option auto
-        ( long "width"
-        <> short 'w'
-        <> showDefault
-        <> value 30 
-        <> help "Width of game world"
-        )
+            putStr g
 
 -- Input
 type Fps = Int

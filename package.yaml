@@ -34,6 +34,7 @@ executables:
     - ansi-terminal >= 0.9 && < 1
     - async >= 2.2 && < 3
     - optparse-applicative >= 0.14 && < 1
+    - transformers >= 0.5 && < 1
 
 tests:
   mambda-test:
