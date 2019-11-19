@@ -1,23 +1,41 @@
+{-# LANGUAGE RecordWildCards #-}
 module Options 
-    ( Settings(..)
+    ( GameConfig(..)
     , parseSettings )
     where
 
+import Mambda.Utils
+
 import Options.Applicative
 
-parseSettings :: IO Settings
-parseSettings = execParser opts 
+parseSettings :: IO (Maybe GameConfig)
+parseSettings = foo <$> execParser opts 
   where
     opts = info (gameSettingsParser <**> helper)
         ( fullDesc
         <> progDesc "CLI classic Snake implementation"
         <> header "Mambda")
 
-data Settings = Settings
-    { mapHeight :: Int
-    , mapWidth :: Int
-    , fps :: Int
+data GameConfig = GameConfig
+    { mapHeight :: PositiveInt
+    , mapWidth :: PositiveInt
+    , fps :: PositiveInt
     , snakeGlyph :: Char
+    }
+
+-- I'm sure this can be done better 
+foo :: Settings -> Maybe GameConfig
+foo Settings{..} = GameConfig 
+    <$> createPositiveInt sHeight 
+    <*> createPositiveInt sWidth
+    <*> createPositiveInt sFps
+    <*> pure sGlyph
+
+data Settings = Settings
+    { sHeight :: Int
+    , sWidth :: Int
+    , sFps :: Int
+    , sGlyph :: Char
     }
 
 gameSettingsParser :: Parser Settings

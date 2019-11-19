@@ -29,26 +29,26 @@ import Control.Monad.Trans.Class (lift)
 main :: IO ()
 main = parseSettings >>= run
   where
-    run settings@Settings{..} = fromMaybe sizeError $ x
-      where
-        sizeError = putStrLn "Game size has to be positive number"
-        game = startFlatGame <$> createPositiveInt mapHeight <*> createPositiveInt mapWidth
-        x = runReaderT . runSnakeApp <$> game <*> pure settings
+    run Nothing = putStrLn "Game size has to be positive number"
+    run (Just config) = (runReaderT . runSnakeApp) startFlatGame $ config
 
-startFlatGame :: PositiveInt -> PositiveInt -> SnakeApp ()
-startFlatGame height width = do
+startFlatGame :: SnakeApp ()
+startFlatGame = do
     SnakeApp $ lift $ setupTerminal
-    game
+    geo <- geo
+    void $ startGame geo South (1,1)
   where
     setupTerminal = do
         hSetEcho stdin False
         hSetBuffering stdin NoBuffering 
         hideCursor
         setTitle "Mambda"
-    geo = createModulusFlatlandGeometry height width
-    game = void $ startGame geo South (1,1)
+    geo = SnakeApp $ do 
+        height <- mapHeight <$> ask
+        width <- mapWidth <$> ask
+        return $ createModulusFlatlandGeometry height width
 
-newtype SnakeApp a = SnakeApp { runSnakeApp :: ReaderT Settings IO a }
+newtype SnakeApp a = SnakeApp { runSnakeApp :: ReaderT GameConfig IO a }
     deriving (Functor, Applicative, Monad)
 
 instance GameMonad SnakeApp Vec2D Direction2D where
@@ -67,12 +67,12 @@ instance GameMonad SnakeApp Vec2D Direction2D where
             putStr g
 
 -- Input
-type Fps = Int
+type Fps = PositiveInt
 
 readCommands :: Fps -> IO [GameCommand Direction2D]
-readCommands x = threadDelay delayInterval >> fmap parseCmds readStdin
+readCommands (PositiveInt fps) = threadDelay delayInterval >> fmap parseCmds readStdin
  where
-    delayInterval = 1000000 `div` x
+    delayInterval = 1000000 `div` fps
     parseCmds = nub . mapMaybe mapControls
 
 readStdin :: IO String
