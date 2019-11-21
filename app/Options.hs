@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+
 module Options 
     ( GameConfig(..)
     , parseSettings )

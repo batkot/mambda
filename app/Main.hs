@@ -1,7 +1,6 @@
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Main where
@@ -13,7 +12,7 @@ import Mambda.Utils
 
 import Options 
 
-import Data.Maybe (maybeToList, fromMaybe, mapMaybe)
+import Data.Maybe (mapMaybe)
 import Data.List (nub)
 import Control.Monad (void)
 
@@ -21,20 +20,22 @@ import System.Console.ANSI (hideCursor, setTitle, setCursorPosition, clearScreen
 import System.IO (hSetEcho, stdin, hFlush, stdout, hReady, hSetBuffering, BufferMode(..))
 
 import Control.Concurrent (threadDelay)
-import Control.Concurrent.Async 
 
 import Control.Monad.Trans.Reader (ReaderT(..), ask, runReaderT)
-import Control.Monad.Trans.Class (lift)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 
 main :: IO ()
 main = parseSettings >>= run
   where
     run Nothing = putStrLn "Game size has to be positive number"
-    run (Just config) = (runReaderT . runSnakeApp) startFlatGame $ config
+    run (Just config) = (runReaderT . runSnakeApp) startFlatGame config
 
-startFlatGame :: SnakeApp ()
+newtype SnakeApp a = SnakeApp { runSnakeApp :: ReaderT GameConfig IO a }
+    deriving (Functor, Applicative, Monad, MonadIO)
+
+startFlatGame :: (Has m GameConfig, MonadIO m) => m ()
 startFlatGame = do
-    SnakeApp $ lift $ setupTerminal
+    liftIO setupTerminal
     geo <- geo
     void $ startGame geo South (1,1)
   where
@@ -43,21 +44,25 @@ startFlatGame = do
         hSetBuffering stdin NoBuffering 
         hideCursor
         setTitle "Mambda"
-    geo = SnakeApp $ do 
-        height <- mapHeight <$> ask
-        width <- mapWidth <$> ask
+    geo = do 
+        height <- mapHeight <$> get
+        width <- mapWidth <$> get
         return $ createModulusFlatlandGeometry height width
 
-newtype SnakeApp a = SnakeApp { runSnakeApp :: ReaderT GameConfig IO a }
-    deriving (Functor, Applicative, Monad)
+class Has m a where
+    get :: m a
 
-instance GameMonad SnakeApp Vec2D Direction2D where
-    getCommands = SnakeApp $ do
-        speed <- fps <$> ask 
-        lift $ readCommands speed
-    renderGame game = SnakeApp $ do
-        glyph <- snakeGlyph <$> ask
-        lift $ do
+instance Has SnakeApp GameConfig where
+    get = SnakeApp ask
+
+instance (Has m GameConfig, MonadIO m) => GameMonad m Vec2D Direction2D where
+    getCommands = do
+        speed <- fps <$> get
+        liftIO $ readCommands speed
+
+    renderGame game = do
+        glyph <- snakeGlyph <$> get
+        liftIO $ do
             clearScreen
             mapM_ (renderTile [glyph]). body . snake $ game
             hFlush stdout
