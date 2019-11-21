@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Mambda 
     ( module Snake
@@ -21,9 +22,11 @@ import Mambda.Flatland as Flatland
 class Monad m => GameMonad m a d | d -> a where
     getCommands :: m [GameCommand d]
     renderGame :: Game a d -> m ()
+    randomObject :: m (Object a d)
 
 startGame 
     :: GameMonad m a d
+    => Eq a
     => Geometry a d 
     -> d
     -> a
@@ -32,16 +35,23 @@ startGame geometry initDir snakeInit =
     gameLoop newGame
   where
     snake = createSnake snakeInit
-    newGame = Game snake initDir geometry False
+    newGame = Game snake initDir geometry [] False
 
 gameLoop 
     :: GameMonad m a d 
+    => Eq a
     => Game a d 
     -> m (Game a d)
 gameLoop game = 
     fmap (step . foldState) getCommands 
-    >>= \newState -> do
-        renderGame newState
+    >>= \s -> do
+        renderGame s
+        newState <- case (objects s) of 
+            [] -> do 
+                obj <- randomObject
+                return s { objects = [obj] }
+            _ -> return s
         gameLoop newState
   where
     foldState = foldl processCommand game
+        

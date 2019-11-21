@@ -12,7 +12,7 @@ import Test.Mambda.Snake -- to import arbitrary instances
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 
-import Test.QuickCheck (Arbitrary(..), elements, applyFun2, Fun, Function, Gen, CoArbitrary)
+import Test.QuickCheck (Arbitrary(..), elements, applyFun2, applyFun, Fun, Function, Gen, CoArbitrary)
 
 test_rules :: TestTree
 test_rules = testGroup "Rules"
@@ -26,18 +26,18 @@ step_PausedGameDoesntChange :: PausedGame Int Int -> Bool
 step_PausedGameDoesntChange (PausedGame g) = g == step g
 
 step_RunningGameMovesSnakeForward :: RunningGame Int Int -> Bool
-step_RunningGameMovesSnakeForward (RunningGame g@(Game inputSnake dir geometry _)) = 
+step_RunningGameMovesSnakeForward (RunningGame g@(Game inputSnake dir geometry _ _)) = 
     (moveFun dir . getHead ) inputSnake == (getHead . snake . step) g
   where
     moveFun = moveDir geometry
 
 -- Arbitrary
---
 instance (Function a, Function d, CoArbitrary a, CoArbitrary d, Arbitrary a, Arbitrary d) => Arbitrary (Game a d) where
     arbitrary = Game 
         <$> arbitrary 
         <*> arbitrary 
         <*> (Geometry . applyFun2 <$> arbitrary) 
+        <*> arbitrary
         <*> arbitrary
 
 newtype PausedGame a d = PausedGame { pausedGame :: Game a d } deriving (Show, Eq)
@@ -50,6 +50,9 @@ instance (Function a, Function d, CoArbitrary a, CoArbitrary d, Arbitrary a, Arb
 newtype RunningGame a d = RunningGame { runningGame :: Game a d } deriving (Show,Eq)
 
 instance (Function a, Function d, CoArbitrary a, CoArbitrary d, Arbitrary a, Arbitrary d) => Arbitrary (RunningGame a d) where
-    arbitrary = RunningGame . pause <$> arbitrary
+    arbitrary = RunningGame . unpause <$> arbitrary
       where
-        pause game = game { pause = False }
+        unpause game = game { pause = False }
+
+instance Arbitrary a => Arbitrary (Object a d) where
+    arbitrary = Object <$> arbitrary <*> pure id

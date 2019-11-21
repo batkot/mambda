@@ -5,6 +5,7 @@ module Mambda.Utils
     , getInt
     , createPositiveInt
     , pattern PositiveInt
+    , one
     )
     where
 
@@ -20,3 +21,6 @@ createPositiveInt x
 
 pattern PositiveInt :: Int -> PositiveInt
 pattern PositiveInt x <- MkPositiveInt x
+
+one :: PositiveInt
+one = MkPositiveInt 1

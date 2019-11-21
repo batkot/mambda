@@ -7,7 +7,7 @@ module Main where
 
 import Mambda
 
-import Options 
+import Options
 
 import Data.Maybe (mapMaybe)
 import Data.List (nub)
@@ -39,31 +39,13 @@ startFlatGame = do
   where
     setupTerminal = do
         hSetEcho stdin False
-        hSetBuffering stdin NoBuffering 
+        hSetBuffering stdin NoBuffering
         hideCursor
         setTitle "Mambda"
-    geo = do 
+    geo = do
         height <- mapHeight <$> get
         width <- mapWidth <$> get
         return $ createModulusFlatlandGeometry height width
-
-printFlatWorld :: MonadIO m => PositiveInt -> PositiveInt -> m ()
-printFlatWorld (PositiveInt height) (PositiveInt width) = 
-    liftIO $ do
-        mapM_ printMapTile [(x,y) | x <- [0..height], y <- [0, maxWidth]]
-        mapM_ printMapTile [(x,y) | x <- [0, height + 1], y <- [0..maxWidth]]
-  where
-    maxWidth = width + 1
-    maxHeight = height + 1
-    printMapTile (x,y) = do
-        setCursorPosition x y
-        putStr $ glyph x y
-      where
-        glyph x y 
-            | (x,y) `elem` corners = "+"
-            | y == (width + 1) || y == 0 = "|"
-            | x == (height + 1) || x == 0 = "-"
-        corners = [(x,y)| x <- [0, maxHeight], y <- [0, maxWidth]]
 
 class Has m a where
     get :: m a
@@ -83,12 +65,35 @@ instance (Has m GameConfig, MonadIO m) => GameMonad m Vec2D Direction2D where
         liftIO $ do
             clearScreen
             printFlatWorld height width
+            mapM_ (renderTile "@" offset) . fmap location . objects $ game
             mapM_ (renderTile [glyph] offset). body . snake $ game
             hFlush stdout
       where
         renderTile g offset (x,y) = do
             setCursorPosition (x + offset) (y + offset)
             putStr g
+
+    randomObject = do
+        (height, width) <- (getInt . mapHeight &&& getInt . mapWidth) <$> get
+        return $ food one ((height - width) `mod` height, (width - height) `mod` width)
+
+printFlatWorld :: MonadIO m => PositiveInt -> PositiveInt -> m ()
+printFlatWorld (PositiveInt height) (PositiveInt width) =
+    liftIO $ do
+        mapM_ printMapTile [(x,y) | x <- [0..height], y <- [0, maxWidth]]
+        mapM_ printMapTile [(x,y) | x <- [0, height + 1], y <- [0..maxWidth]]
+  where
+    maxWidth = width + 1
+    maxHeight = height + 1
+    printMapTile (x,y) = do
+        setCursorPosition x y
+        putStr $ glyph x y
+      where
+        glyph x y
+            | (x,y) `elem` corners = "+"
+            | y == (width + 1) || y == 0 = "|"
+            | x == (height + 1) || x == 0 = "-"
+        corners = [(x,y)| x <- [0, maxHeight], y <- [0, maxWidth]]
 
 -- Input
 type Fps = PositiveInt
@@ -106,7 +111,7 @@ readStdin :: IO String
 readStdin = read' []
   where
     read' :: String -> IO String
-    read' s = do 
+    read' s = do
         ready <- hReady stdin
         if ready then getChar >>= \n -> read' (n:s) else return s
 
