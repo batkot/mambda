@@ -15,6 +15,7 @@ import Options
 import Data.Maybe (mapMaybe)
 import Data.List (nub)
 import Control.Monad (void)
+import Control.Arrow ((&&&))
 
 import System.Console.ANSI (hideCursor, setTitle, setCursorPosition, clearScreen)
 import System.IO (hSetEcho, stdin, hFlush, stdout, hReady, hSetBuffering, BufferMode(..))
@@ -49,6 +50,24 @@ startFlatGame = do
         width <- mapWidth <$> get
         return $ createModulusFlatlandGeometry height width
 
+printFlatWorld :: MonadIO m => PositiveInt -> PositiveInt -> m ()
+printFlatWorld (PositiveInt height) (PositiveInt width) = 
+    liftIO $ do
+        mapM_ printMap [(x,y) | x <- [0..height], y <- [0, maxWidth]]
+        mapM_ printMap [(x,y) | x <- [0, height + 1], y <- [0..maxWidth]]
+  where
+    maxWidth = width + 1
+    maxHeight = height + 1
+    printMap (x,y) = do
+        setCursorPosition x y
+        putStr $ glyph x y
+      where
+        glyph x y 
+            | (x,y) `elem` corners = "+"
+            | y == (width + 1) || y == 0 = "|"
+            | x == (height + 1) || x == 0 = "-"
+        corners = [(x,y)| x <- [0, maxHeight], y <- [0, maxWidth]]
+
 class Has m a where
     get :: m a
 
@@ -62,22 +81,28 @@ instance (Has m GameConfig, MonadIO m) => GameMonad m Vec2D Direction2D where
 
     renderGame game = do
         glyph <- snakeGlyph <$> get
+        (height, width) <- (mapHeight &&& mapWidth) <$> get
+        offset <- getInt . printOffset <$> get
         liftIO $ do
             clearScreen
-            mapM_ (renderTile [glyph]). body . snake $ game
+            printFlatWorld height width
+            mapM_ (renderTile [glyph] offset). body . snake $ game
             hFlush stdout
       where
-        renderTile g (x,y) = do
-            setCursorPosition x y
+        renderTile g offset (x,y) = do
+            setCursorPosition (x + offset) (y + offset)
             putStr g
 
 -- Input
 type Fps = PositiveInt
 
+second :: Int
+second = 1000000
+
 readCommands :: Fps -> IO [GameCommand Direction2D]
 readCommands (PositiveInt fps) = threadDelay delayInterval >> fmap parseCmds readStdin
  where
-    delayInterval = 1000000 `div` fps
+    delayInterval = second `div` fps
     parseCmds = nub . mapMaybe mapControls
 
 readStdin :: IO String

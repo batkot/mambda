@@ -22,6 +22,7 @@ data GameConfig = GameConfig
     , mapWidth :: PositiveInt
     , fps :: PositiveInt
     , snakeGlyph :: Char
+    , printOffset :: PositiveInt
     }
 
 -- I'm sure this can be done better 
@@ -31,6 +32,7 @@ foo Settings{..} = GameConfig
     <*> createPositiveInt sWidth
     <*> createPositiveInt sFps
     <*> pure sGlyph
+    <*> createPositiveInt 1
 
 data Settings = Settings
     { sHeight :: Int
