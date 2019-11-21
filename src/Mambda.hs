@@ -3,35 +3,20 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Mambda 
+    ( module Snake
+    , module Rules
+    , module Utils
+    , module Flatland
+    , GameMonad(..)
+    , startGame
+    , gameLoop
+    )
     where
 
-import Mambda.Snake
-
-data Game a d = Game 
-    { snake :: Snake a
-    , snakeDirection :: d
-    , worldGeometry :: Geometry a d
-    , pause :: Bool
-    }
-
-newtype Geometry a d = Geometry { moveDir :: d -> a -> a }
-
-data GameCommand a 
-    = ChangeDirection a 
-    | TogglePause
-    deriving (Show,Eq)
-
-processCommand :: Game a d -> GameCommand d -> Game a d
-processCommand game (ChangeDirection d) = game { snakeDirection = d }
-processCommand game@Game{ pause = pause } TogglePause = game { pause = not pause }
-
-step :: Game a d -> Game a d
-step game@(Game _ _ _ True) = game
-step game@(Game snake dir geometry False) = 
-    game { snake = newSnake } 
-  where
-    moved = moveDir geometry dir $ getHead snake
-    newSnake = move moved snake
+import Mambda.Snake as Snake
+import Mambda.Rules as Rules
+import Mambda.Utils as Utils
+import Mambda.Flatland as Flatland
 
 class Monad m => GameMonad m a d | d -> a where
     getCommands :: m [GameCommand d]

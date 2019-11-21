@@ -3,7 +3,7 @@
 module Mambda.Flatland 
     where
 
-import Mambda (Geometry(..))
+import Mambda.Rules (Geometry(..))
 import Mambda.Utils (PositiveInt, getInt, pattern PositiveInt)
 import Data.Bifunctor (bimap)
 

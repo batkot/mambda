@@ -6,9 +6,6 @@
 module Main where
 
 import Mambda
-import Mambda.Snake
-import Mambda.Flatland
-import Mambda.Utils
 
 import Options 
 
@@ -53,12 +50,12 @@ startFlatGame = do
 printFlatWorld :: MonadIO m => PositiveInt -> PositiveInt -> m ()
 printFlatWorld (PositiveInt height) (PositiveInt width) = 
     liftIO $ do
-        mapM_ printMap [(x,y) | x <- [0..height], y <- [0, maxWidth]]
-        mapM_ printMap [(x,y) | x <- [0, height + 1], y <- [0..maxWidth]]
+        mapM_ printMapTile [(x,y) | x <- [0..height], y <- [0, maxWidth]]
+        mapM_ printMapTile [(x,y) | x <- [0, height + 1], y <- [0..maxWidth]]
   where
     maxWidth = width + 1
     maxHeight = height + 1
-    printMap (x,y) = do
+    printMapTile (x,y) = do
         setCursorPosition x y
         putStr $ glyph x y
       where
