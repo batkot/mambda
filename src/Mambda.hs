@@ -46,7 +46,7 @@ gameLoop game =
     fmap (step . foldState) getCommands 
     >>= \s -> do
         renderGame s
-        newState <- case (objects s) of 
+        newState <- case objects s of 
             [] -> do 
                 obj <- randomObject
                 return s { objects = [obj] }

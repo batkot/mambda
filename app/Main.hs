@@ -11,16 +11,19 @@ import Options
 
 import Data.Maybe (mapMaybe)
 import Data.List (nub)
+import Data.Bifunctor (bimap)
 import Control.Monad (void)
 import Control.Arrow ((&&&))
 
 import System.Console.ANSI (hideCursor, setTitle, setCursorPosition, clearScreen)
 import System.IO (hSetEcho, stdin, hFlush, stdout, hReady, hSetBuffering, BufferMode(..))
+import System.Random (newStdGen, randomR)
 
 import Control.Concurrent (threadDelay)
 
 import Control.Monad.Trans.Reader (ReaderT(..), ask, runReaderT)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+
 
 main :: IO ()
 main = parseSettings >>= run
@@ -74,8 +77,11 @@ instance (Has m GameConfig, MonadIO m) => GameMonad m Vec2D Direction2D where
             putStr g
 
     randomObject = do
-        (height, width) <- (getInt . mapHeight &&& getInt . mapWidth) <$> get
-        return $ food one ((height - width) `mod` height, (width - height) `mod` width)
+        (width, height) <- bimap' ( flip (-) 1 . getInt) . (mapWidth &&& mapHeight) <$> get
+        loc <- liftIO $ bimap id (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
+        return $ food one loc
+          where
+            bimap' f = bimap f f
 
 printFlatWorld :: MonadIO m => PositiveInt -> PositiveInt -> m ()
 printFlatWorld (PositiveInt height) (PositiveInt width) =
