@@ -35,7 +35,7 @@ startGame geometry initDir snakeInit =
     gameLoop newGame
   where
     snake = createSnake snakeInit
-    newGame = Game snake initDir geometry [] False
+    newGame = Game snake initDir geometry [] 0 False
 
 gameLoop 
     :: GameMonad m a d 

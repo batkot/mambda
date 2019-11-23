@@ -26,7 +26,7 @@ step_PausedGameDoesntChange :: PausedGame Int Int -> Bool
 step_PausedGameDoesntChange (PausedGame g) = g == step g
 
 step_RunningGameMovesSnakeForward :: RunningGame Int Int -> Bool
-step_RunningGameMovesSnakeForward (RunningGame g@(Game inputSnake dir geometry _ _)) = 
+step_RunningGameMovesSnakeForward (RunningGame g@(Game inputSnake dir geometry _ _ _)) = 
     (moveFun dir . getHead ) inputSnake == (getHead . snake . step) g
   where
     moveFun = moveDir geometry
@@ -37,6 +37,7 @@ instance (Function a, Function d, CoArbitrary a, CoArbitrary d, Arbitrary a, Arb
         <$> arbitrary 
         <*> arbitrary 
         <*> (Geometry . applyFun2 <$> arbitrary) 
+        <*> arbitrary
         <*> arbitrary
         <*> arbitrary
 

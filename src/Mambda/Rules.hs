@@ -11,6 +11,7 @@ data Game a d = Game
     , snakeDirection :: d
     , worldGeometry :: Geometry a d
     , objects :: [Object a d]
+    , score :: Int
     , pause :: Bool
     } deriving (Show, Eq)
 
@@ -32,6 +33,7 @@ food grow loc = Object loc $
     \g -> g 
     { snake = (increaseGrow grow . snake) g 
     , objects = filter ((/=) loc . location) $ objects g
+    , score = (+1) $ score g
     }
 
 instance Show (Geometry a d) where
@@ -50,8 +52,8 @@ processCommand game (ChangeDirection d) = game { snakeDirection = d }
 processCommand game@Game{ pause = pause } TogglePause = game { pause = not pause }
 
 step :: Eq a => Game a d -> Game a d
-step game@(Game _ _ _ _ True) = game
-step game@(Game snake dir geometry objects False) = 
+step game@(Game _ _ _ _ _ True) = game
+step game@(Game snake dir geometry objects _ False) = 
     newGame
   where
     moved = moveDir geometry dir $ getHead snake

@@ -24,7 +24,6 @@ import Control.Concurrent (threadDelay)
 import Control.Monad.Trans.Reader (ReaderT(..), ask, runReaderT)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
-
 main :: IO ()
 main = parseSettings >>= run
   where
@@ -70,6 +69,8 @@ instance (Has m GameConfig, MonadIO m) => GameMonad m Vec2D Direction2D where
             printFlatWorld height width
             mapM_ (renderTile "@" offset) . fmap location . objects $ game
             mapM_ (renderTile [glyph] offset). body . snake $ game
+            setCursorPosition (getInt height + offset + 1) 0
+            putStr $ "Score " ++ show (score game)
             hFlush stdout
       where
         renderTile g offset (x,y) = do
