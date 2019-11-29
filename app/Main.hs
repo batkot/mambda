@@ -33,7 +33,7 @@ main = parseSettings >>= run
 newtype SnakeApp a = SnakeApp { runSnakeApp :: ReaderT GameConfig IO a }
     deriving (Functor, Applicative, Monad, MonadIO)
 
-startFlatGame :: (Has m GameConfig, MonadIO m) => m ()
+startFlatGame :: (Has GameConfig m, MonadIO m) => m ()
 startFlatGame = do
     liftIO setupTerminal
     geo <- geo
@@ -49,13 +49,13 @@ startFlatGame = do
         width <- mapWidth <$> get
         return $ createModulusFlatlandGeometry height width
 
-class Has m a where
+class Has a m where
     get :: m a
 
-instance Has SnakeApp GameConfig where
+instance Has GameConfig SnakeApp where
     get = SnakeApp ask
 
-instance (Has m GameConfig, MonadIO m) => GameMonad m Vec2D Direction2D where
+instance (Has GameConfig m, MonadIO m) => GameMonad m Vec2D Direction2D where
     getCommands = do
         speed <- fps <$> get
         liftIO $ readCommands speed
@@ -71,6 +71,8 @@ instance (Has m GameConfig, MonadIO m) => GameMonad m Vec2D Direction2D where
             mapM_ (renderTile [glyph] offset). body . snake $ game
             setCursorPosition (getInt height + offset + 1) 0
             putStr $ "Score " ++ show (score game)
+            setCursorPosition (getInt height + offset + 1) (getInt width + offset - 6)
+            putStr $ if pause game then "Paused" else ""
             hFlush stdout
       where
         renderTile g offset (x,y) = do
@@ -78,11 +80,11 @@ instance (Has m GameConfig, MonadIO m) => GameMonad m Vec2D Direction2D where
             putStr g
 
     randomObject = do
-        (width, height) <- bimap' ( flip (-) 1 . getInt) . (mapWidth &&& mapHeight) <$> get
+        (width, height) <- both ( flip (-) 1 . getInt) . (mapWidth &&& mapHeight) <$> get
         loc <- liftIO $ bimap id (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
         return $ food one loc
           where
-            bimap' f = bimap f f
+            both f = bimap f f
 
 printFlatWorld :: MonadIO m => PositiveInt -> PositiveInt -> m ()
 printFlatWorld (PositiveInt height) (PositiveInt width) =

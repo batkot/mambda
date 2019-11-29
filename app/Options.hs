@@ -61,7 +61,7 @@ gameSettingsParser = Settings
         ( long "speed"
         <> short 's'
         <> showDefault
-        <> value 3
+        <> value 5
         <> help "Game speed defined as frames per second"
         )
     <*> option auto

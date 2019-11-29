@@ -31,9 +31,9 @@ instance Eq a => Eq (Object a d) where
 food :: Eq a => PositiveInt -> a -> Object a d
 food grow loc = Object loc $ 
     \g -> g 
-    { snake = (increaseGrow grow . snake) g 
-    , objects = filter ((/=) loc . location) $ objects g
-    , score = (+1) $ score g
+    { snake = increaseGrow grow . snake $ g 
+    , objects = filter ((/=) loc . location) . objects $ g
+    , score = (+1) . score $ g
     }
 
 instance Show (Geometry a d) where

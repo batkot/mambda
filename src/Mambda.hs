@@ -54,4 +54,3 @@ gameLoop game =
         gameLoop newState
   where
     foldState = foldl processCommand game
-        
