@@ -5,6 +5,7 @@ import Mambda.Snake
 import Mambda.Utils
 
 import Data.List (filter)
+import Data.List.NonEmpty as NE (tail)
 
 data Game a d = Game 
     { snake :: Snake a
@@ -13,6 +14,7 @@ data Game a d = Game
     , objects :: [Object a d]
     , score :: Int
     , pause :: Bool
+    , finished :: Bool
     } deriving (Show, Eq)
 
 newtype Geometry a d = Geometry { moveDir :: d -> a -> a } 
@@ -36,6 +38,12 @@ food grow loc = Object loc $
     , score = (+1) . score $ g
     }
 
+snakeToObjects :: Snake a -> [Object a d]
+snakeToObjects = fmap makeCollisionObject . snakeBody
+  where
+    snakeBody = NE.tail . body 
+    makeCollisionObject loc = Object loc $ \g -> g { finished = True }
+
 instance Show (Geometry a d) where
     show = const "Geometry"
 
@@ -52,10 +60,12 @@ processCommand game (ChangeDirection d) = game { snakeDirection = d }
 processCommand game@Game{ pause = pause } TogglePause = game { pause = not pause }
 
 step :: Eq a => Game a d -> Game a d
-step game@(Game _ _ _ _ _ True) = game
-step game@(Game snake dir geometry objects _ False) = 
+step game@(Game _ _ _ _ _ _ True) = game
+step game@(Game _ _ _ _ _ True _) = game
+step game@(Game s dir geometry objects _ False _) = 
     newGame
   where
-    moved = moveDir geometry dir $ getHead snake
-    movedGame = game { snake = move moved snake }
-    newGame = foldr collision movedGame $ filter ((==) moved . location) objects
+    moved = moveDir geometry dir $ getHead s
+    movedGame = game { snake = move moved s }
+    snakeBody = snakeToObjects $ snake movedGame
+    newGame = foldr collision movedGame $ filter ((==) moved . location) $ snakeBody ++ objects

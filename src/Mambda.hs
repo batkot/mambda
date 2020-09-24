@@ -35,7 +35,7 @@ startGame geometry initDir snakeInit =
     gameLoop newGame
   where
     snake = createSnake snakeInit
-    newGame = Game snake initDir geometry [] 0 False
+    newGame = Game snake initDir geometry [] 0 False False
 
 gameLoop 
     :: GameMonad m a d 
@@ -51,6 +51,8 @@ gameLoop game =
                 obj <- randomObject
                 return s { objects = [obj] }
             _ -> return s
-        gameLoop newState
+        case finished newState of
+            True -> return newState
+            False -> gameLoop newState
   where
     foldState = foldl processCommand game

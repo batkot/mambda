@@ -11,7 +11,7 @@ import Options
 
 import Data.Maybe (mapMaybe)
 import Data.List (nub)
-import Data.Bifunctor (bimap)
+import qualified Data.Bifunctor as BF
 import Control.Monad (void)
 import Control.Arrow ((&&&))
 
@@ -71,20 +71,27 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Vec2D Direction2D where
             mapM_ (renderTile [glyph] offset). body . snake $ game
             setCursorPosition (getInt height + offset + 1) 0
             putStr $ "Score " ++ show (score game)
-            setCursorPosition (getInt height + offset + 1) (getInt width + offset - 6)
-            putStr $ if pause game then "Paused" else ""
+            let statusBar = 
+                    case (pause game, finished game) of
+                        (_, True) -> "Game Over" 
+                        (True, _) -> "Paused" 
+                        _ -> ""
+            statusBarText statusBar offset (width, height)
             hFlush stdout
       where
         renderTile g offset (x,y) = do
             setCursorPosition (x + offset) (y + offset)
             putStr g
+        statusBarText text offset (x,y)= do
+            setCursorPosition (getInt y + 2*offset) (getInt x + 2*offset - length text)
+            putStr text
 
     randomObject = do
-        (width, height) <- both ( flip (-) 1 . getInt) . (mapWidth &&& mapHeight) <$> get
-        loc <- liftIO $ bimap id (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
+        (width, height) <- both (flip (-) 1 . getInt) . (mapWidth &&& mapHeight) <$> get
+        loc <- liftIO $ BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
         return $ food one loc
           where
-            both f = bimap f f
+            both f = BF.bimap f f
 
 printFlatWorld :: MonadIO m => PositiveInt -> PositiveInt -> m ()
 printFlatWorld (PositiveInt height) (PositiveInt width) =

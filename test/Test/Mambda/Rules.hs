@@ -26,7 +26,7 @@ step_PausedGameDoesntChange :: PausedGame Int Int -> Bool
 step_PausedGameDoesntChange (PausedGame g) = g == step g
 
 step_RunningGameMovesSnakeForward :: RunningGame Int Int -> Bool
-step_RunningGameMovesSnakeForward (RunningGame g@(Game inputSnake dir geometry _ _ _)) = 
+step_RunningGameMovesSnakeForward (RunningGame g@(Game inputSnake dir geometry _ _ _ _)) = 
     (moveFun dir . getHead ) inputSnake == (getHead . snake . step) g
   where
     moveFun = moveDir geometry
@@ -37,6 +37,7 @@ instance (Function a, Function d, CoArbitrary a, CoArbitrary d, Arbitrary a, Arb
         <$> arbitrary 
         <*> arbitrary 
         <*> (Geometry . applyFun2 <$> arbitrary) 
+        <*> arbitrary
         <*> arbitrary
         <*> arbitrary
         <*> arbitrary
@@ -51,9 +52,10 @@ instance (Function a, Function d, CoArbitrary a, CoArbitrary d, Arbitrary a, Arb
 newtype RunningGame a d = RunningGame { runningGame :: Game a d } deriving (Show,Eq)
 
 instance (Function a, Function d, CoArbitrary a, CoArbitrary d, Arbitrary a, Arbitrary d) => Arbitrary (RunningGame a d) where
-    arbitrary = RunningGame . unpause <$> arbitrary
+    arbitrary = RunningGame .unfinish . unpause <$> arbitrary
       where
         unpause game = game { pause = False }
+        unfinish game = game { finished = False }
 
 instance Arbitrary a => Arbitrary (Object a d) where
     arbitrary = Object <$> arbitrary <*> pure id
