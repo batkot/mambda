@@ -1,7 +1,4 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Mambda 
     ( module Snake
@@ -30,11 +27,12 @@ startGame
     -> a
     -> a
     -> m (Game a)
-startGame objects initDir snakeInit =
-    gameLoop newGame
+startGame objects initDir snakeInit = do
+    startFood <- randomObject
+    gameLoop $ newGame $ startFood : objects
   where
     snake = createSnake snakeInit
-    newGame = Game snake initDir objects 0 False False
+    newGame objects = Game snake initDir objects 0 Running
 
 gameLoop 
     :: GameMonad m a
@@ -42,17 +40,11 @@ gameLoop
     => Monoid a
     => Game a
     -> m (Game a)
-gameLoop game = 
-    fmap (step . foldState) getCommands 
-    >>= \s -> do
-        renderGame s
-        newState <- case objects s of 
-            [] -> do 
-                obj <- randomObject
-                return s { objects = [obj] }
-            _ -> return s
-        case finished newState of
-            True -> return newState
-            False -> gameLoop newState
+gameLoop game = do
+    newState <- step . foldState <$> getCommands 
+    renderGame newState
+    case status newState of 
+        Finished -> return newState
+        _ -> gameLoop newState
   where
     foldState = foldl processCommand game

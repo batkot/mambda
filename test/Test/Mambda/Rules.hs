@@ -14,7 +14,7 @@ import Data.Monoid (Sum)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 
-import Test.QuickCheck (Arbitrary(..), elements, applyFun2, applyFun, Fun, Function, Gen, CoArbitrary)
+import Test.QuickCheck (Arbitrary(..), elements)
 
 test_rules :: TestTree
 test_rules = testGroup "Rules"
@@ -28,7 +28,7 @@ step_PausedGameDoesntChange :: PausedGame (Sum Int) -> Bool
 step_PausedGameDoesntChange (PausedGame g) = g == step g
 
 step_RunningGameMovesSnakeForward :: RunningGame (Sum Int) -> Bool
-step_RunningGameMovesSnakeForward (RunningGame g@(Game inputSnake speed _ _ _ _)) = 
+step_RunningGameMovesSnakeForward (RunningGame g@(Game inputSnake speed _ _ _ )) = 
     ((<>) speed . getHead ) inputSnake == (getHead . snake . step) g
 
 -- Arbitrary
@@ -39,22 +39,23 @@ instance (Monoid a, Arbitrary a) => Arbitrary (Game a) where
         <*> arbitrary
         <*> arbitrary
         <*> arbitrary
-        <*> arbitrary
+
+instance Arbitrary GameStatus where
+    arbitrary = elements [ Running, Paused, Finished ]
 
 newtype PausedGame a = PausedGame { pausedGame :: Game a } deriving (Show, Eq)
 
 instance (Monoid a, Arbitrary a) => Arbitrary (PausedGame a) where
     arbitrary = PausedGame . pause <$> arbitrary
       where
-        pause game = game { pause = True }
+        pause game = game { status = Paused }
 
 newtype RunningGame a = RunningGame { runningGame :: Game a } deriving (Show,Eq)
 
 instance (Monoid a, Arbitrary a) => Arbitrary (RunningGame a) where
-    arbitrary = RunningGame .unfinish . unpause <$> arbitrary
+    arbitrary = RunningGame . makeRunning <$> arbitrary
       where
-        unpause game = game { pause = False }
-        unfinish game = game { finished = False }
+        makeRunning game = game { status = Running }
 
 instance Arbitrary a => Arbitrary (Object a) where
     arbitrary = Object <$> arbitrary <*> pure id

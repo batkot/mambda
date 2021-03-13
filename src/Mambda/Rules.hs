@@ -9,13 +9,18 @@ import Mambda.Utils
 import Data.List (filter)
 import Data.List.NonEmpty as NE (tail)
 
+data GameStatus 
+    = Running 
+    | Paused 
+    | Finished 
+    deriving (Eq, Show)
+
 data Game a = Game 
     { snake :: Snake a
     , snakeSpeed :: a
     , objects :: [Object a]
     , score :: Int
-    , pause :: Bool
-    , finished :: Bool
+    , status :: GameStatus
     } deriving (Show, Eq)
 
 data Object a = Object
@@ -29,13 +34,19 @@ instance Show a => Show (Object a) where
 instance Eq a => Eq (Object a) where
     (Object a _)  == (Object b _) = a == b
 
-food :: Eq a => PositiveInt -> a -> Object a
-food grow loc = Object loc $ 
-    \g -> g 
-    { snake = increaseGrow grow . snake $ g 
-    , objects = filter ((/=) loc . location) . objects $ g
-    , score = (+1) . score $ g
-    }
+food :: Eq a => PositiveInt -> a -> [a] -> Object a
+food grow loc next = Object loc $ 
+    \g -> 
+        case next of
+            [] -> g { status = Finished }
+            (x:xs) -> 
+                let newFood = food grow x xs
+                    objs = filter ((/=) loc . location) . objects $ g
+                in g 
+                    { snake = increaseGrow grow . snake $ g 
+                    , objects = newFood : objs
+                    , score = (+1) . score $ g
+                    }
 
 wall :: Eq a => a -> Object a
 wall loc = Object loc finishGame
@@ -53,7 +64,7 @@ snakeToObjects = fmap makeCollisionObject . snakeBody
     makeCollisionObject loc = Object loc finishGame
 
 finishGame :: Game a -> Game a
-finishGame g = g { finished = True }
+finishGame g = g { status = Finished }
 
 data GameCommand a 
     = ChangeSpeed a
@@ -62,15 +73,18 @@ data GameCommand a
 
 processCommand :: Game a -> GameCommand a -> Game a
 processCommand game (ChangeSpeed a) = game { snakeSpeed = a }
-processCommand game@Game{ pause = pause } TogglePause = game { pause = not pause }
+processCommand game@(Game _ _ _ _ status) TogglePause = game { status = toggled status }
+    where
+      toggled Running = Paused
+      toggled Paused = Running
+      toggled Finished = Finished
 
 step :: (Eq a, Monoid a) => Game a -> Game a
-step game@(Game _ _ _ _ _ True) = game
-step game@(Game _ _ _ _ True _) = game
-step game@(Game s speed objects _ False _) = 
+step game@(Game s speed objects _ Running) = 
     newGame
   where
     moved = getHead s <> speed
     movedGame = game { snake = move moved s }
     snakeBody = snakeToObjects $ snake movedGame
     newGame = foldr collision movedGame $ filter ((==) moved . location) $ snakeBody ++ objects
+step game = game

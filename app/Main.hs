@@ -76,16 +76,16 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Tile where
             setCursorPosition (getInt height + offset + 1) 0
             putStr $ "Score " ++ show (score game)
             let statusBar = 
-                    case (pause game, finished game) of
-                        (_, True) -> "Game Over" 
-                        (True, _) -> "Paused" 
+                    case (status game) of
+                        Finished -> "Game Over" 
+                        Paused -> "Paused" 
                         _ -> ""
             statusBarText statusBar offset (width, height)
             hFlush stdout
       where
         renderTile (Glyphed (Just g) (Vec2D (x,y))) = do
             setCursorPosition x y
-            putStr [g]
+            putChar g
         renderTile (Glyphed Nothing _) = return ()
         statusBarText text offset (x,y)= do
             setCursorPosition (getInt y + 2*offset) (getInt x + 2*offset - length text)
@@ -94,7 +94,8 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Tile where
     randomObject = do
         (width, height) <- both (flip (-) 1 . getInt) . (mapWidth &&& mapHeight) <$> get
         loc <- liftIO $ Vec2D . BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
-        return $ food one $ Glyphed (Just '@') loc
+        loc2 <- liftIO $ Vec2D . BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
+        return $ food one (visible '@' loc) [visible '@' loc2]
           where
             both f = BF.bimap f f
 
