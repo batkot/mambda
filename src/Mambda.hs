@@ -7,7 +7,6 @@ module Mambda
     ( module Snake
     , module Rules
     , module Utils
-    , module Flatland
     , GameMonad(..)
     , startGame
     , gameLoop
@@ -17,31 +16,31 @@ module Mambda
 import Mambda.Snake as Snake
 import Mambda.Rules as Rules
 import Mambda.Utils as Utils
-import Mambda.Flatland as Flatland
 
-class Monad m => GameMonad m a d | d -> a where
-    getCommands :: m [GameCommand d]
-    renderGame :: Game a d -> m ()
-    randomObject :: m (Object a d)
+class Monad m => GameMonad m a where
+    getCommands :: m [GameCommand a]
+    renderGame :: Game a -> m ()
+    randomObject :: m (Object a)
 
 startGame 
-    :: GameMonad m a d
+    :: GameMonad m a
     => Eq a
-    => Geometry a d 
-    -> d
+    => Monoid a
+    => a
     -> a
-    -> m (Game a d)
-startGame geometry initDir snakeInit =
+    -> m (Game a)
+startGame initDir snakeInit =
     gameLoop newGame
   where
     snake = createSnake snakeInit
-    newGame = Game snake initDir geometry [] 0 False False
+    newGame = Game snake initDir [] 0 False False
 
 gameLoop 
-    :: GameMonad m a d 
+    :: GameMonad m a
     => Eq a
-    => Game a d 
-    -> m (Game a d)
+    => Monoid a
+    => Game a
+    -> m (Game a)
 gameLoop game = 
     fmap (step . foldState) getCommands 
     >>= \s -> do

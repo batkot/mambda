@@ -1,28 +1,34 @@
 {-# LANGUAGE PatternSynonyms #-}
 
 module Mambda.Flatland 
+    ( Vec2D(..)
+
+    , north
+    , south
+    , east
+    , west
+    )
     where
 
-import Mambda.Rules (Geometry(..))
-import Mambda.Utils (PositiveInt, getInt, pattern PositiveInt)
-import Data.Bifunctor (bimap)
+import Data.Semigroup
+import Data.Monoid
 
-data Direction2D 
-    = North
-    | South
-    | West
-    | East
-    deriving (Show,Eq)
+newtype Vec2D = Vec2D (Int,Int) deriving (Eq, Show)
 
-type Vec2D = (Int,Int)
+north :: Vec2D
+north = Vec2D (-1, 0)
 
-createModulusFlatlandGeometry :: PositiveInt -> PositiveInt -> Geometry Vec2D Direction2D
-createModulusFlatlandGeometry (PositiveInt maxHeight) (PositiveInt maxWidth) = 
-    Geometry $ bimap (flippedMod  maxHeight) (flippedMod maxWidth) `fmap2` moveFunc
-  where
-    moveFunc North (x,y) = (x-1, y)
-    moveFunc South (x,y) = (x+1, y)
-    moveFunc West (x,y) = (x, y-1)
-    moveFunc East (x,y) = (x, y+1) 
-    flippedMod = flip mod
-    fmap2 = fmap . fmap
+south :: Vec2D 
+south = Vec2D (1, 0)
+
+west :: Vec2D
+west = Vec2D (0, -1)
+
+east :: Vec2D
+east = Vec2D (0, 1)
+
+instance Semigroup Vec2D where
+    (Vec2D (x1,y1)) <> (Vec2D (x2, y2)) = Vec2D (x1 + x2, y1 + y2)
+
+instance Monoid Vec2D where
+    mempty = Vec2D (0,0)

@@ -9,6 +9,8 @@ import Mambda.Snake
 
 import Test.Mambda.Snake -- to import arbitrary instances
 
+import Data.Monoid (Sum)
+
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 
@@ -22,40 +24,37 @@ test_rules = testGroup "Rules"
         ]
     ]
 
-step_PausedGameDoesntChange :: PausedGame Int Int -> Bool
+step_PausedGameDoesntChange :: PausedGame (Sum Int) -> Bool
 step_PausedGameDoesntChange (PausedGame g) = g == step g
 
-step_RunningGameMovesSnakeForward :: RunningGame Int Int -> Bool
-step_RunningGameMovesSnakeForward (RunningGame g@(Game inputSnake dir geometry _ _ _ _)) = 
-    (moveFun dir . getHead ) inputSnake == (getHead . snake . step) g
-  where
-    moveFun = moveDir geometry
+step_RunningGameMovesSnakeForward :: RunningGame (Sum Int) -> Bool
+step_RunningGameMovesSnakeForward (RunningGame g@(Game inputSnake speed _ _ _ _)) = 
+    ((<>) speed . getHead ) inputSnake == (getHead . snake . step) g
 
 -- Arbitrary
-instance (Function a, Function d, CoArbitrary a, CoArbitrary d, Arbitrary a, Arbitrary d) => Arbitrary (Game a d) where
+instance (Monoid a, Arbitrary a) => Arbitrary (Game a) where
     arbitrary = Game 
         <$> arbitrary 
         <*> arbitrary 
-        <*> (Geometry . applyFun2 <$> arbitrary) 
         <*> arbitrary
         <*> arbitrary
         <*> arbitrary
         <*> arbitrary
 
-newtype PausedGame a d = PausedGame { pausedGame :: Game a d } deriving (Show, Eq)
+newtype PausedGame a = PausedGame { pausedGame :: Game a } deriving (Show, Eq)
 
-instance (Function a, Function d, CoArbitrary a, CoArbitrary d, Arbitrary a, Arbitrary d) => Arbitrary (PausedGame a d) where
+instance (Monoid a, Arbitrary a) => Arbitrary (PausedGame a) where
     arbitrary = PausedGame . pause <$> arbitrary
       where
         pause game = game { pause = True }
 
-newtype RunningGame a d = RunningGame { runningGame :: Game a d } deriving (Show,Eq)
+newtype RunningGame a = RunningGame { runningGame :: Game a } deriving (Show,Eq)
 
-instance (Function a, Function d, CoArbitrary a, CoArbitrary d, Arbitrary a, Arbitrary d) => Arbitrary (RunningGame a d) where
+instance (Monoid a, Arbitrary a) => Arbitrary (RunningGame a) where
     arbitrary = RunningGame .unfinish . unpause <$> arbitrary
       where
         unpause game = game { pause = False }
         unfinish game = game { finished = False }
 
-instance Arbitrary a => Arbitrary (Object a d) where
+instance Arbitrary a => Arbitrary (Object a) where
     arbitrary = Object <$> arbitrary <*> pure id

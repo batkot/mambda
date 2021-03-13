@@ -1,11 +1,13 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Main where
 
 import Mambda
+import Mambda.Flatland
 
 import Options
 
@@ -36,18 +38,13 @@ newtype SnakeApp a = SnakeApp { runSnakeApp :: ReaderT GameConfig IO a }
 startFlatGame :: (Has GameConfig m, MonadIO m) => m ()
 startFlatGame = do
     liftIO setupTerminal
-    geo <- geo
-    void $ startGame geo South (1,1)
+    void $ startGame south $ Vec2D (1,1)
   where
     setupTerminal = do
         hSetEcho stdin False
         hSetBuffering stdin NoBuffering
         hideCursor
         setTitle "Mambda"
-    geo = do
-        height <- mapHeight <$> get
-        width <- mapWidth <$> get
-        return $ createModulusFlatlandGeometry height width
 
 class Has a m where
     get :: m a
@@ -55,7 +52,7 @@ class Has a m where
 instance Has GameConfig SnakeApp where
     get = SnakeApp ask
 
-instance (Has GameConfig m, MonadIO m) => GameMonad m Vec2D Direction2D where
+instance (Has GameConfig m, MonadIO m) => GameMonad m Vec2D where
     getCommands = do
         speed <- fps <$> get
         liftIO $ readCommands speed
@@ -79,7 +76,7 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Vec2D Direction2D where
             statusBarText statusBar offset (width, height)
             hFlush stdout
       where
-        renderTile g offset (x,y) = do
+        renderTile g offset (Vec2D (x,y)) = do
             setCursorPosition (x + offset) (y + offset)
             putStr g
         statusBarText text offset (x,y)= do
@@ -88,7 +85,7 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Vec2D Direction2D where
 
     randomObject = do
         (width, height) <- both (flip (-) 1 . getInt) . (mapWidth &&& mapHeight) <$> get
-        loc <- liftIO $ BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
+        loc <- liftIO $ Vec2D . BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
         return $ food one loc
           where
             both f = BF.bimap f f
@@ -117,7 +114,7 @@ type Fps = PositiveInt
 second :: Int
 second = 1000000
 
-readCommands :: Fps -> IO [GameCommand Direction2D]
+readCommands :: Fps -> IO [GameCommand Vec2D]
 readCommands (PositiveInt fps) = threadDelay delayInterval >> fmap parseCmds readStdin
  where
     delayInterval = second `div` fps
@@ -131,16 +128,16 @@ readStdin = read' []
         ready <- hReady stdin
         if ready then getChar >>= \n -> read' (n:s) else return s
 
-mapControls :: Char -> Maybe (GameCommand Direction2D)
+mapControls :: Char -> Maybe (GameCommand Vec2D)
 -- WSAD
-mapControls 'w' = Just $ ChangeDirection North
-mapControls 's' = Just $ ChangeDirection South
-mapControls 'a' = Just $ ChangeDirection West
-mapControls 'd' = Just $ ChangeDirection East
+mapControls 'w' = Just $ ChangeSpeed north
+mapControls 's' = Just $ ChangeSpeed south
+mapControls 'a' = Just $ ChangeSpeed west
+mapControls 'd' = Just $ ChangeSpeed east
 -- Vi controls
-mapControls 'k' = Just $ ChangeDirection North
-mapControls 'j' = Just $ ChangeDirection South
-mapControls 'h' = Just $ ChangeDirection West
-mapControls 'l' = Just $ ChangeDirection East
+mapControls 'k' = Just $ ChangeSpeed north
+mapControls 'j' = Just $ ChangeSpeed south
+mapControls 'h' = Just $ ChangeSpeed west
+mapControls 'l' = Just $ ChangeSpeed east
 mapControls 'p' = Just TogglePause
 mapControls _ = Nothing
