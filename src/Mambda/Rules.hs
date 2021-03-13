@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveFunctor #-}
+
 module Mambda.Rules
     where
 
@@ -44,7 +46,7 @@ snakeToObjects = fmap makeCollisionObject . snakeBody
 data GameCommand a 
     = ChangeSpeed a
     | TogglePause
-    deriving (Show,Eq)
+    deriving (Show,Eq, Functor)
 
 processCommand :: Game a -> GameCommand a -> Game a
 processCommand game (ChangeSpeed a) = game { snakeSpeed = a }

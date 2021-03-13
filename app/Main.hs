@@ -11,6 +11,8 @@ import Mambda.Flatland
 
 import Options
 
+import Worlds.Console
+
 import Data.Maybe (mapMaybe)
 import Data.List (nub)
 import qualified Data.Bifunctor as BF
@@ -26,6 +28,8 @@ import Control.Concurrent (threadDelay)
 import Control.Monad.Trans.Reader (ReaderT(..), ask, runReaderT)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
+type Tile = Glyphed Vec2D
+
 main :: IO ()
 main = parseSettings >>= run
   where
@@ -38,7 +42,7 @@ newtype SnakeApp a = SnakeApp { runSnakeApp :: ReaderT GameConfig IO a }
 startFlatGame :: (Has GameConfig m, MonadIO m) => m ()
 startFlatGame = do
     liftIO setupTerminal
-    void $ startGame south $ Vec2D (1,1)
+    void $ startGame (invisible south) $ visible '#' $ Vec2D (1,1)
   where
     setupTerminal = do
         hSetEcho stdin False
@@ -52,10 +56,10 @@ class Has a m where
 instance Has GameConfig SnakeApp where
     get = SnakeApp ask
 
-instance (Has GameConfig m, MonadIO m) => GameMonad m Vec2D where
+instance (Has GameConfig m, MonadIO m) => GameMonad m Tile where
     getCommands = do
         speed <- fps <$> get
-        liftIO $ readCommands speed
+        liftIO $ fmap (fmap invisible) <$> readCommands speed
 
     renderGame game = do
         glyph <- snakeGlyph <$> get
@@ -64,8 +68,8 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Vec2D where
         liftIO $ do
             clearScreen
             printFlatWorld height width
-            mapM_ (renderTile "@" offset) . fmap location . objects $ game
-            mapM_ (renderTile [glyph] offset). body . snake $ game
+            mapM_ (renderTile offset) . fmap ( location) . objects $ game
+            mapM_ (renderTile offset). body . snake $ game
             setCursorPosition (getInt height + offset + 1) 0
             putStr $ "Score " ++ show (score game)
             let statusBar = 
@@ -76,9 +80,10 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Vec2D where
             statusBarText statusBar offset (width, height)
             hFlush stdout
       where
-        renderTile g offset (Vec2D (x,y)) = do
+        renderTile offset (Glyphed (Just g) (Vec2D (x,y))) = do
             setCursorPosition (x + offset) (y + offset)
-            putStr g
+            putStr [g]
+        renderTile _ (Glyphed Nothing (Vec2D (x,y))) = return ()
         statusBarText text offset (x,y)= do
             setCursorPosition (getInt y + 2*offset) (getInt x + 2*offset - length text)
             putStr text
@@ -86,7 +91,7 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Vec2D where
     randomObject = do
         (width, height) <- both (flip (-) 1 . getInt) . (mapWidth &&& mapHeight) <$> get
         loc <- liftIO $ Vec2D . BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
-        return $ food one loc
+        return $ food one $ Glyphed (Just '@') loc
           where
             both f = BF.bimap f f
 
