@@ -17,7 +17,6 @@ import Mambda.Utils as Utils
 class Monad m => GameMonad m a where
     getCommands :: m [GameCommand a]
     renderGame :: Game a -> m ()
-    randomObject :: m (Object a)
 
 startGame 
     :: GameMonad m a
@@ -26,10 +25,14 @@ startGame
     => [Object a]
     -> a
     -> a
+    -> m [a]
     -> m (Game a)
-startGame objects initDir snakeInit = do
-    startFood <- randomObject
-    gameLoop $ newGame $ startFood : objects
+startGame objects initDir snakeInit foodSource = do
+    f <- foodSource
+    let obj = case f of 
+                [] -> objects
+                (x:xs) -> food one x xs : objects
+    gameLoop $ newGame obj
   where
     snake = createSnake snakeInit
     newGame objects = Game snake initDir objects 0 Running

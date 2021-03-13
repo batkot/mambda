@@ -21,7 +21,7 @@ import Control.Arrow ((&&&))
 
 import System.Console.ANSI (hideCursor, setTitle, setCursorPosition, clearScreen)
 import System.IO (hSetEcho, stdin, hFlush, stdout, hReady, hSetBuffering, BufferMode(..))
-import System.Random (newStdGen, randomR)
+import System.Random (newStdGen, randomRs)
 
 import Control.Concurrent (threadDelay)
 
@@ -43,7 +43,7 @@ startFlatGame :: (Has GameConfig m, MonadIO m) => m ()
 startFlatGame = do
     liftIO setupTerminal
     walls <- gameWalls
-    void $ startGame walls (invisible south) $ visible '#' $ Vec2D (1,1)
+    void $ startGame walls (invisible south) (visible '#' (Vec2D (1,1))) foodLocations
   where
     setupTerminal = do
         hSetEcho stdin False
@@ -53,7 +53,23 @@ startFlatGame = do
     gameWalls = do
         (height, (width, wrapMap)) <- (mapHeight &&& mapWidth &&& wrapMap) <$> get
         return $ generateWorldMap wrapMap height width
+    foodLocations = do
+        (width, height) <- both (flip (-) 1 . getInt) . (mapWidth &&& mapHeight) <$> get
+        xs <- liftIO $ randomRs (1, height) <$> newStdGen
+        ys <- liftIO $ randomRs (1, width) <$> newStdGen 
+        return $ visible '@' . Vec2D <$> zip xs ys
+      where
+        both f = BF.bimap f f
+        
 
+
+    -- randomObject = do
+    --     (width, height) <- both (flip (-) 1 . getInt) . (mapWidth &&& mapHeight) <$> get
+    --     loc <- liftIO $ Vec2D . BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
+    --     loc2 <- liftIO $ Vec2D . BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
+    --     return $ food one (visible '@' loc) [visible '@' loc2]
+    --       where
+    --         both f = BF.bimap f f
 class Has a m where
     get :: m a
 
@@ -91,13 +107,13 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Tile where
             setCursorPosition (getInt y + 2*offset) (getInt x + 2*offset - length text)
             putStr text
 
-    randomObject = do
-        (width, height) <- both (flip (-) 1 . getInt) . (mapWidth &&& mapHeight) <$> get
-        loc <- liftIO $ Vec2D . BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
-        loc2 <- liftIO $ Vec2D . BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
-        return $ food one (visible '@' loc) [visible '@' loc2]
-          where
-            both f = BF.bimap f f
+    -- randomObject = do
+    --     (width, height) <- both (flip (-) 1 . getInt) . (mapWidth &&& mapHeight) <$> get
+    --     loc <- liftIO $ Vec2D . BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
+    --     loc2 <- liftIO $ Vec2D . BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
+    --     return $ food one (visible '@' loc) [visible '@' loc2]
+    --       where
+    --         both f = BF.bimap f f
 
 generateWorldMap :: Bool -> PositiveInt -> PositiveInt -> [Object Tile]
 generateWorldMap wrapMap (PositiveInt height) (PositiveInt width) = 

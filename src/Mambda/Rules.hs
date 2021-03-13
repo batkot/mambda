@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Mambda.Rules
     where
@@ -35,18 +36,17 @@ instance Eq a => Eq (Object a) where
     (Object a _)  == (Object b _) = a == b
 
 food :: Eq a => PositiveInt -> a -> [a] -> Object a
-food grow loc next = Object loc $ 
-    \g -> 
-        case next of
-            [] -> g { status = Finished }
-            (x:xs) -> 
-                let newFood = food grow x xs
-                    objs = filter ((/=) loc . location) . objects $ g
-                in g 
-                    { snake = increaseGrow grow . snake $ g 
-                    , objects = newFood : objs
-                    , score = (+1) . score $ g
-                    }
+food grow loc [] = Object loc $ scoreGame . finishGame
+food grow loc (x:xs) = Object loc $ scoreGame . \g ->
+    let newFood = food grow x xs
+        objs = filter ((/=) loc . location) . objects $ g
+    in g 
+        { snake = increaseGrow grow . snake $ g 
+        , objects = newFood : objs
+        }
+
+scoreGame :: Game a -> Game a
+scoreGame g  = g { score = (+1) . score $ g }
 
 wall :: Eq a => a -> Object a
 wall loc = Object loc finishGame
