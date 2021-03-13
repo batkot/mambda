@@ -53,8 +53,6 @@ startFlatGame = do
     gameWalls = do
         (height, width) <- (mapHeight &&& mapWidth) <$> get
         return $ generateWorldMap height width
-        
-
 
 class Has a m where
     get :: m a
@@ -102,17 +100,24 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Tile where
 
 generateWorldMap :: PositiveInt -> PositiveInt -> [Object Tile]
 generateWorldMap (PositiveInt height) (PositiveInt width) = 
-        fmap createWall $ concat [[(x,y) | x <- [0..height], y <- [0, maxWidth]], [(x,y) | x <- [0, height + 1], y <- [0..maxWidth]]]
+    createWall <$> [(x,y) | x <- [0..height], y <- [0, maxWidth]] ++ [(x,y) | x <- [0, height + 1], y <- [0..maxWidth]]
   where
     maxWidth = width + 1
     maxHeight = height + 1
-    createWall (x,y) = wall $ visible (glyph x y) $ Vec2D (x,y)
+    createWall (x,y) = teleport wallGlyph teleportGlyph
+        -- wall $ visible (glyph x y) $ Vec2D (x,y)
       where
         glyph x y
             | (x,y) `elem` corners = '+'
             | y == (width + 1) || y == 0 = '|'
             | x == (height + 1) || x == 0 = '-'
         corners = [(x,y)| x <- [0, maxHeight], y <- [0, maxWidth]]
+        wallGlyph = visible (glyph x y) $ Vec2D (x,y)
+        foo m x 
+          | x == 0 = m
+          | x == m = 1
+          | otherwise = x
+        teleportGlyph = visible '#' $ Vec2D (foo maxHeight x, foo maxWidth y)
 
 -- Input
 type Fps = PositiveInt

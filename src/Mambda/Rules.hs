@@ -38,13 +38,22 @@ food grow loc = Object loc $
     }
 
 wall :: Eq a => a -> Object a
-wall loc = Object loc $ \g -> g { finished = True }
+wall loc = Object loc finishGame
+
+teleport :: Eq a => a -> a -> Object a
+teleport loc destination = Object loc $ 
+    \g -> g 
+    { snake = move destination . snake $ g
+    }
 
 snakeToObjects :: Snake a -> [Object a]
 snakeToObjects = fmap makeCollisionObject . snakeBody
   where
     snakeBody = NE.tail . body 
-    makeCollisionObject loc = Object loc $ \g -> g { finished = True }
+    makeCollisionObject loc = Object loc finishGame
+
+finishGame :: Game a -> Game a
+finishGame g = g { finished = True }
 
 data GameCommand a 
     = ChangeSpeed a
