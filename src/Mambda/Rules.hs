@@ -21,7 +21,7 @@ data Game a = Game
 data Object a = Object
     { location :: a
     , collision :: Game a -> Game a
-    }
+    } 
 
 instance Show a => Show (Object a) where
     show (Object a _) = show a
@@ -36,6 +36,9 @@ food grow loc = Object loc $
     , objects = filter ((/=) loc . location) . objects $ g
     , score = (+1) . score $ g
     }
+
+wall :: Eq a => a -> Object a
+wall loc = Object loc $ \g -> g { finished = True }
 
 snakeToObjects :: Snake a -> [Object a]
 snakeToObjects = fmap makeCollisionObject . snakeBody

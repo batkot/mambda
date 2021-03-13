@@ -26,14 +26,15 @@ startGame
     :: GameMonad m a
     => Eq a
     => Monoid a
-    => a
+    => [Object a]
+    -> a
     -> a
     -> m (Game a)
-startGame initDir snakeInit =
+startGame objects initDir snakeInit =
     gameLoop newGame
   where
     snake = createSnake snakeInit
-    newGame = Game snake initDir [] 0 False False
+    newGame = Game snake initDir objects 0 False False
 
 gameLoop 
     :: GameMonad m a

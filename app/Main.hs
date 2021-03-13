@@ -42,13 +42,19 @@ newtype SnakeApp a = SnakeApp { runSnakeApp :: ReaderT GameConfig IO a }
 startFlatGame :: (Has GameConfig m, MonadIO m) => m ()
 startFlatGame = do
     liftIO setupTerminal
-    void $ startGame (invisible south) $ visible '#' $ Vec2D (1,1)
+    walls <- gameWalls
+    void $ startGame walls (invisible south) $ visible '#' $ Vec2D (1,1)
   where
     setupTerminal = do
         hSetEcho stdin False
         hSetBuffering stdin NoBuffering
         hideCursor
         setTitle "Mambda"
+    gameWalls = do
+        (height, width) <- (mapHeight &&& mapWidth) <$> get
+        return $ generateWorldMap height width
+        
+
 
 class Has a m where
     get :: m a
@@ -67,9 +73,8 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Tile where
         offset <- getInt . printOffset <$> get
         liftIO $ do
             clearScreen
-            printFlatWorld height width
-            mapM_ (renderTile offset) . fmap ( location) . objects $ game
-            mapM_ (renderTile offset). body . snake $ game
+            mapM_ renderTile . fmap location . objects $ game
+            mapM_ renderTile . body . snake $ game
             setCursorPosition (getInt height + offset + 1) 0
             putStr $ "Score " ++ show (score game)
             let statusBar = 
@@ -80,10 +85,10 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Tile where
             statusBarText statusBar offset (width, height)
             hFlush stdout
       where
-        renderTile offset (Glyphed (Just g) (Vec2D (x,y))) = do
-            setCursorPosition (x + offset) (y + offset)
+        renderTile (Glyphed (Just g) (Vec2D (x,y))) = do
+            setCursorPosition x y
             putStr [g]
-        renderTile _ (Glyphed Nothing (Vec2D (x,y))) = return ()
+        renderTile (Glyphed Nothing _) = return ()
         statusBarText text offset (x,y)= do
             setCursorPosition (getInt y + 2*offset) (getInt x + 2*offset - length text)
             putStr text
@@ -95,22 +100,18 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Tile where
           where
             both f = BF.bimap f f
 
-printFlatWorld :: MonadIO m => PositiveInt -> PositiveInt -> m ()
-printFlatWorld (PositiveInt height) (PositiveInt width) =
-    liftIO $ do
-        mapM_ printMapTile [(x,y) | x <- [0..height], y <- [0, maxWidth]]
-        mapM_ printMapTile [(x,y) | x <- [0, height + 1], y <- [0..maxWidth]]
+generateWorldMap :: PositiveInt -> PositiveInt -> [Object Tile]
+generateWorldMap (PositiveInt height) (PositiveInt width) = 
+        fmap createWall $ concat [[(x,y) | x <- [0..height], y <- [0, maxWidth]], [(x,y) | x <- [0, height + 1], y <- [0..maxWidth]]]
   where
     maxWidth = width + 1
     maxHeight = height + 1
-    printMapTile (x,y) = do
-        setCursorPosition x y
-        putStr $ glyph x y
+    createWall (x,y) = wall $ visible (glyph x y) $ Vec2D (x,y)
       where
         glyph x y
-            | (x,y) `elem` corners = "+"
-            | y == (width + 1) || y == 0 = "|"
-            | x == (height + 1) || x == 0 = "-"
+            | (x,y) `elem` corners = '+'
+            | y == (width + 1) || y == 0 = '|'
+            | x == (height + 1) || x == 0 = '-'
         corners = [(x,y)| x <- [0, maxHeight], y <- [0, maxWidth]]
 
 -- Input
