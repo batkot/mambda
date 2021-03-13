@@ -51,8 +51,8 @@ startFlatGame = do
         hideCursor
         setTitle "Mambda"
     gameWalls = do
-        (height, width) <- (mapHeight &&& mapWidth) <$> get
-        return $ generateWorldMap height width
+        (height, (width, wrapMap)) <- (mapHeight &&& mapWidth &&& wrapMap) <$> get
+        return $ generateWorldMap wrapMap height width
 
 class Has a m where
     get :: m a
@@ -98,14 +98,15 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Tile where
           where
             both f = BF.bimap f f
 
-generateWorldMap :: PositiveInt -> PositiveInt -> [Object Tile]
-generateWorldMap (PositiveInt height) (PositiveInt width) = 
+generateWorldMap :: Bool -> PositiveInt -> PositiveInt -> [Object Tile]
+generateWorldMap wrapMap (PositiveInt height) (PositiveInt width) = 
     createWall <$> [(x,y) | x <- [0..height], y <- [0, maxWidth]] ++ [(x,y) | x <- [0, height + 1], y <- [0..maxWidth]]
   where
     maxWidth = width + 1
     maxHeight = height + 1
-    createWall (x,y) = teleport wallGlyph teleportGlyph
-        -- wall $ visible (glyph x y) $ Vec2D (x,y)
+    createWall (x,y) = 
+        if wrapMap then teleport wallGlyph teleportGlyph
+                   else wall $ visible (glyph x y) $ Vec2D (x,y)
       where
         glyph x y
             | (x,y) `elem` corners = '+'
@@ -114,7 +115,7 @@ generateWorldMap (PositiveInt height) (PositiveInt width) =
         corners = [(x,y)| x <- [0, maxHeight], y <- [0, maxWidth]]
         wallGlyph = visible (glyph x y) $ Vec2D (x,y)
         foo m x 
-          | x == 0 = m
+          | x == 0 = m - 1
           | x == m = 1
           | otherwise = x
         teleportGlyph = visible '#' $ Vec2D (foo maxHeight x, foo maxWidth y)

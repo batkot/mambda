@@ -20,6 +20,7 @@ parseSettings = foo <$> execParser opts
 data GameConfig = GameConfig
     { mapHeight :: PositiveInt
     , mapWidth :: PositiveInt
+    , wrapMap :: Bool
     , fps :: PositiveInt
     , snakeGlyph :: Char
     , printOffset :: PositiveInt
@@ -30,6 +31,7 @@ foo :: Settings -> Maybe GameConfig
 foo Settings{..} = GameConfig 
     <$> createPositiveInt sHeight 
     <*> createPositiveInt sWidth
+    <*> pure sWrapMap
     <*> createPositiveInt sFps
     <*> pure sGlyph
     <*> createPositiveInt 1
@@ -39,6 +41,7 @@ data Settings = Settings
     , sWidth :: Int
     , sFps :: Int
     , sGlyph :: Char
+    , sWrapMap :: Bool
     }
 
 gameSettingsParser :: Parser Settings
@@ -70,4 +73,10 @@ gameSettingsParser = Settings
         <> showDefault
         <> value '#'
         <> help "Snake body glyph"
+        )
+    <*> switch
+        ( long "wrap-map"
+        <> short 'w'
+        <> showDefault
+        <> help "Hitting walls sends snake to other end of map"
         )
