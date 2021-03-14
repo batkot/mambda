@@ -89,4 +89,3 @@ instance Arbitrary a => Arbitrary (GrowingSnake a) where
     arbitrary = GrowingSnake <$> fmap increaseGrow arbitrary
       where
         increaseGrow (Snake g x) = Snake (g+1) x
-

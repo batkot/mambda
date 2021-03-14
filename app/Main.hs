@@ -73,7 +73,6 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Tile where
         liftIO $ fmap (fmap invisible) <$> readCommands speed
 
     renderGame game = do
-        glyph <- snakeGlyph <$> get
         (height, width) <- (mapHeight &&& mapWidth) <$> get
         offset <- getInt . printOffset <$> get
         liftIO $ do
@@ -98,14 +97,6 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Tile where
         statusBarText text offset (x,y)= do
             setCursorPosition (getInt y + 2*offset) (getInt x + 2*offset - length text)
             putStr text
-
-    -- randomObject = do
-    --     (width, height) <- both (flip (-) 1 . getInt) . (mapWidth &&& mapHeight) <$> get
-    --     loc <- liftIO $ Vec2D . BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
-    --     loc2 <- liftIO $ Vec2D . BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
-    --     return $ food one (visible '@' loc) [visible '@' loc2]
-    --       where
-    --         both f = BF.bimap f f
 
 generateWorldMap :: Bool -> PositiveInt -> PositiveInt -> [Object Tile]
 generateWorldMap wrapMap (PositiveInt height) (PositiveInt width) = 

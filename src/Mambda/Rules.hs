@@ -7,6 +7,7 @@ module Mambda.Rules
     , gameStatus
     , gameSnake
     , gameScore
+    , gameSnakeSpeed
     , GameTile
 
     , GameStatus(..)
@@ -55,6 +56,9 @@ gameStatus Game { status = status } = status
 
 gameSnake :: Game a -> Snake a
 gameSnake Game{ snake = snake } = snake
+
+gameSnakeSpeed :: Game a -> a
+gameSnakeSpeed Game { snakeSpeed = snakeSpeed } = snakeSpeed
 
 gameScore :: Game a -> Int
 gameScore Game { score = score } = score

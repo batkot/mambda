@@ -19,6 +19,9 @@ test_utils = testGroup "Utils"
     [ testGroup "PositiveInt" 
         [ testProperty "Given positive int should create instance" $ uncurry expect . (id &&& Just) . (+1) . abs
         , testProperty "Given non positive int should return Nothing" $ uncurry expect . (id &&& const Nothing) . negate . abs
+        , testGroup "Arbitrary tests" 
+            [ testProperty "Should always create positive int" $ (<) 0 . getInt
+            ]
         ]
     ]
 
@@ -31,4 +34,3 @@ expect given expected =
 -- Arbitrary
 instance Arbitrary PositiveInt where
     arbitrary = fromJust . createPositiveInt . (+1) . abs <$> arbitrary
-

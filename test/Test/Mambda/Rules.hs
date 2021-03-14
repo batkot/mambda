@@ -2,6 +2,10 @@
 
 module Test.Mambda.Rules
     ( test_rules
+
+    -- tmp
+    , RunningGame(..)
+    , PausedGame(..)
     ) where
 
 import Mambda.Rules
@@ -25,37 +29,25 @@ test_rules = testGroup "Rules"
     ]
 
 step_PausedGameDoesntChange :: PausedGame (Sum Int) -> Bool
-step_PausedGameDoesntChange (PausedGame g) = g == step g
+step_PausedGameDoesntChange (PausedGame g) = g == stepSnakeEffect g
 
 step_RunningGameMovesSnakeForward :: RunningGame (Sum Int) -> Bool
-step_RunningGameMovesSnakeForward (RunningGame g@(Game inputSnake speed _ _ _ )) = 
-    ((<>) speed . getHead ) inputSnake == (getHead . snake . step) g
+step_RunningGameMovesSnakeForward (RunningGame g) = 
+    ((<>) (gameSnakeSpeed g) . getHead . gameSnake) g == (getHead . gameSnake . stepSnakeEffect) g
 
 -- Arbitrary
-instance (Monoid a, Arbitrary a) => Arbitrary (Game a) where
-    arbitrary = Game 
-        <$> arbitrary 
-        <*> arbitrary 
-        <*> arbitrary
-        <*> arbitrary
-        <*> arbitrary
-
 instance Arbitrary GameStatus where
     arbitrary = elements [ Running, Paused, Finished ]
 
 newtype PausedGame a = PausedGame { pausedGame :: Game a } deriving (Show, Eq)
 
 instance (Monoid a, Arbitrary a) => Arbitrary (PausedGame a) where
-    arbitrary = PausedGame . pause <$> arbitrary
-      where
-        pause game = game { status = Paused }
+    arbitrary = PausedGame . pauseGame . runningGame <$> arbitrary
 
 newtype RunningGame a = RunningGame { runningGame :: Game a } deriving (Show,Eq)
 
 instance (Monoid a, Arbitrary a) => Arbitrary (RunningGame a) where
-    arbitrary = RunningGame . makeRunning <$> arbitrary
-      where
-        makeRunning game = game { status = Running }
+    arbitrary = fmap RunningGame $ newGame <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary a => Arbitrary (Object a) where
     arbitrary = Object <$> arbitrary <*> pure id
