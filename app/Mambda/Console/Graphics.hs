@@ -1,15 +1,21 @@
 module Mambda.Console.Graphics 
-    where
+    ( Tile
+    , createWorldMap
+
+    , invisible 
+    , visible
+
+    , Glyphed(..)
+    ) where
 
 import Data.Semigroup (Semigroup(..))
 import Data.Monoid (Monoid(..))
 import Control.Applicative
 
-import System.Console.ANSI (hideCursor, setTitle, setCursorPosition, clearScreen)
-import System.IO (hSetEcho, stdin, hFlush, stdout, hReady, hSetBuffering, BufferMode(..))
+import Mambda.Flatland (Vec2D(..))
+import qualified Mambda.Flatland as Flatland 
 
-import Mambda.Flatland as Flatland
-import Mambda
+import Mambda hiding (GameMonad(..))
 
 data Glyphed a = Glyphed
     { glyph :: Maybe Char
@@ -53,34 +59,3 @@ createWorldMap wrapMap height width = createWall <$> Flatland.createWorldMap hei
           | x == m = 1 - m
           | otherwise = 0
         teleportGlyph = invisible $ Vec2D (foo maxHeight x, foo maxWidth y)
-
-initialize :: IO ()
-initialize = do
-    hSetEcho stdin False
-    hSetBuffering stdin NoBuffering
-    hideCursor
-    setTitle "Mambda"
-
-renderGame :: PositiveInt -> PositiveInt -> Game Tile -> IO ()
-renderGame (PositiveInt height) (PositiveInt width) game = do
-    clearScreen
-    mapM_ renderTile . fmap location . gameObjects $ game
-    renderTile . getHead . gameSnake $ game
-    setCursorPosition (height + 2) 0
-    putStr $ "Score " ++ show (gameScore game)
-    let statusBar = 
-            case gameStatus game of
-                Finished -> "Game Over" 
-                Paused -> "Paused" 
-                _ -> ""
-    statusBarText statusBar 1 (width, height)
-    setCursorPosition (height + 1 + 2) 0
-    hFlush stdout
-  where
-    renderTile (Glyphed (Just g) (Vec2D (x,y))) = do
-        setCursorPosition x y
-        putChar g
-    renderTile (Glyphed Nothing _) = return ()
-    statusBarText text offset (x,y)= do
-        setCursorPosition (y + 2*offset) (x + 2*offset - length text)
-        putStr text

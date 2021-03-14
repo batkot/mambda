@@ -1,4 +1,5 @@
 module Mambda.Console.Controls 
+    (readCommands)
     where
 
 import Mambda.Utils 

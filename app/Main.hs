@@ -10,6 +10,7 @@ import Mambda
 import Mambda.Console.Controls
 import Mambda.Flatland
 import Options
+import Mambda.Console.Rendering as Rendering
 import Mambda.Console.Graphics as Console
 
 import qualified Data.Bifunctor as BF
@@ -23,7 +24,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 
 
 main :: IO ()
-main = parseSettings >>= run
+main = parseSettings >>= run >> putStrLn ""
   where
     run = (runReaderT . runSnakeApp) startFlatGame
 
@@ -32,7 +33,7 @@ newtype SnakeApp a = SnakeApp { runSnakeApp :: ReaderT GameSettings IO a }
 
 startFlatGame :: (Has GameSettings m, MonadIO m) => m ()
 startFlatGame = do
-    liftIO $ Console.initialize
+    liftIO Rendering.initialize
     walls <- gameWalls
     sGlyph <- snakeGlyph <$> get
     void $ startGame walls (invisible south) (visible sGlyph (Vec2D (0,1))) foodLocations
@@ -61,4 +62,4 @@ instance (Has GameSettings m, MonadIO m) => GameMonad m Tile where
 
     renderGame game = do
         (height, width) <- (mapHeight &&& mapWidth) <$> get
-        liftIO $ Console.renderGame height width game
+        liftIO $ Rendering.renderGame height width game
