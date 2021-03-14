@@ -1,4 +1,4 @@
-module Mambda.Console.Graphics 
+module Mambda.Console.World
     ( Tile
     , createWorldMap
 

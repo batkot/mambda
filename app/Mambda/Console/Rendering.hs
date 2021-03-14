@@ -3,7 +3,7 @@ module Mambda.Console.Rendering
     , renderGame
     ) where
 
-import Mambda.Console.Graphics
+import Mambda.Console.World
 
 import Mambda hiding (GameMonad(..))
 import Mambda.Flatland (Vec2D(..))

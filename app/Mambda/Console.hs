@@ -10,7 +10,7 @@ module Mambda.Console
     where
 
 import Mambda
-import qualified Mambda.Console.Graphics as Graphics
+import qualified Mambda.Console.World as World
 import qualified Mambda.Console.Controls as Controls
 import qualified Mambda.Console.Rendering as Rendering
 import Mambda.Flatland (Vec2D(..), south)
@@ -32,10 +32,10 @@ data GameSettings = GameSettings
     , wrapMap :: Bool
     }
 
-instance (Has GameSettings m, MonadIO m) => GameMonad m Graphics.Tile where
+instance (Has GameSettings m, MonadIO m) => GameMonad m World.Tile where
     getCommands = do
         speed <- fps <$> get
-        liftIO $ fmap (fmap Graphics.invisible) <$> Controls.readCommands speed
+        liftIO $ fmap (fmap World.invisible) <$> Controls.readCommands speed
 
     renderGame game = do
         (height, width) <- (mapHeight &&& mapWidth) <$> get
@@ -45,13 +45,13 @@ runConsoleGame :: (Has GameSettings m, MonadIO m) => m ()
 runConsoleGame = do
     liftIO Rendering.initialize
     (height, (width, wrapMap)) <- (mapHeight &&& mapWidth &&& wrapMap) <$> get
-    let walls = Graphics.createWorldMap wrapMap height width
+    let walls = World.createWorldMap wrapMap height width
     sGlyph <- snakeGlyph <$> get
-    void $ startGame walls (Graphics.invisible south) (Graphics.visible sGlyph (Vec2D (0,1))) $ foodLocations height width
+    void $ startGame walls (World.invisible south) (World.visible sGlyph (Vec2D (0,1))) $ foodLocations height width
   where
     foodLocations height width= do
         xs <- liftIO $ randomRs (1, getInt height) <$> newStdGen
         ys <- liftIO $ randomRs (1, getInt width) <$> newStdGen 
-        return $ Graphics.visible '@' . Vec2D <$> zip xs ys
+        return $ World.visible '@' . Vec2D <$> zip xs ys
       where
         both f = bimap f f
