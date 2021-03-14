@@ -33,18 +33,17 @@ type Tile = Glyphed Vec2D
 main :: IO ()
 main = parseSettings >>= run
   where
-    run Nothing = putStrLn "Game size has to be positive number"
-    run (Just config) = (runReaderT . runSnakeApp) startFlatGame config
+    run = (runReaderT . runSnakeApp) startFlatGame
 
-newtype SnakeApp a = SnakeApp { runSnakeApp :: ReaderT GameConfig IO a }
+newtype SnakeApp a = SnakeApp { runSnakeApp :: ReaderT GameSettings IO a }
     deriving (Functor, Applicative, Monad, MonadIO)
 
-startFlatGame :: (Has GameConfig m, MonadIO m) => m ()
+startFlatGame :: (Has GameSettings m, MonadIO m) => m ()
 startFlatGame = do
     liftIO setupTerminal
     walls <- gameWalls
     sGlyph <- snakeGlyph <$> get
-    void $ startGame walls (invisible south) (visible sGlyph (Vec2D (1,1))) foodLocations
+    void $ startGame walls (invisible south) (visible sGlyph (Vec2D (0,1))) foodLocations
   where
     setupTerminal = do
         hSetEcho stdin False
@@ -65,30 +64,29 @@ startFlatGame = do
 class Has a m where
     get :: m a
 
-instance Has GameConfig SnakeApp where
+instance Has GameSettings SnakeApp where
     get = SnakeApp ask
 
-instance (Has GameConfig m, MonadIO m) => GameMonad m Tile where
+instance (Has GameSettings m, MonadIO m) => GameMonad m Tile where
     getCommands = do
         speed <- fps <$> get
         liftIO $ fmap (fmap invisible) <$> readCommands speed
 
     renderGame game = do
         (height, width) <- (mapHeight &&& mapWidth) <$> get
-        offset <- getInt . printOffset <$> get
         liftIO $ do
             clearScreen
             mapM_ renderTile . fmap location . gameObjects $ game
             renderTile . getHead . gameSnake $ game
-            setCursorPosition (getInt height + offset + 1) 0
+            setCursorPosition (getInt height + 2) 0
             putStr $ "Score " ++ show (gameScore game)
             let statusBar = 
-                    case (gameStatus game) of
+                    case gameStatus game of
                         Finished -> "Game Over" 
                         Paused -> "Paused" 
                         _ -> ""
-            statusBarText statusBar offset (width, height)
-            setCursorPosition (getInt height + offset + 2) 0
+            statusBarText statusBar 1 (width, height)
+            setCursorPosition (getInt height + 1 + 2) 0
             hFlush stdout
       where
         renderTile (Glyphed (Just g) (Vec2D (x,y))) = do

@@ -1,70 +1,50 @@
-{-# LANGUAGE RecordWildCards #-}
-
 module Options 
-    ( GameConfig(..)
+    ( GameSettings(..)
     , parseSettings )
     where
 
 import Mambda.Utils
+import Data.Maybe (fromJust)
 
 import Options.Applicative
 
-parseSettings :: IO (Maybe GameConfig)
-parseSettings = foo <$> execParser opts 
+parseSettings :: IO GameSettings
+parseSettings = execParser opts 
   where
     opts = info (gameSettingsParser <**> helper)
         ( fullDesc
         <> progDesc "CLI classic Snake implementation"
         <> header "Mambda")
 
-data GameConfig = GameConfig
+data GameSettings = GameSettings
     { mapHeight :: PositiveInt
     , mapWidth :: PositiveInt
-    , wrapMap :: Bool
     , fps :: PositiveInt
     , snakeGlyph :: Char
-    , printOffset :: PositiveInt
+    , wrapMap :: Bool
     }
 
--- I'm sure this can be done better 
-foo :: Settings -> Maybe GameConfig
-foo Settings{..} = GameConfig 
-    <$> createPositiveInt sHeight 
-    <*> createPositiveInt sWidth
-    <*> pure sWrapMap
-    <*> createPositiveInt sFps
-    <*> pure sGlyph
-    <*> createPositiveInt 1
-
-data Settings = Settings
-    { sHeight :: Int
-    , sWidth :: Int
-    , sFps :: Int
-    , sGlyph :: Char
-    , sWrapMap :: Bool
-    }
-
-gameSettingsParser :: Parser Settings
-gameSettingsParser = Settings 
-    <$> option auto
+gameSettingsParser :: Parser GameSettings
+gameSettingsParser = GameSettings 
+    <$> option positiveInt 
         ( long "height"
         <> short 'h'
         <> showDefault
-        <> value 20 
+        <> (value . forcePositiveInt) 20
         <> help "Height of game world"
         )
-    <*> option auto
+    <*> option positiveInt
         ( long "width"
         <> short 'w'
         <> showDefault
-        <> value 30 
+        <> (value . forcePositiveInt) 30
         <> help "Width of game world"
         )
-    <*> option auto
+    <*> option positiveInt
         ( long "speed"
         <> short 's'
         <> showDefault
-        <> value 5
+        <> (value . forcePositiveInt) 6
         <> help "Game speed defined as frames per second"
         )
     <*> option auto
@@ -78,5 +58,16 @@ gameSettingsParser = Settings
         ( long "wrap-map"
         <> short 'w'
         <> showDefault
-        <> help "Hitting walls sends snake to other end of map"
+        <> help "Hitting walls sends snake to other side of the map"
         )
+
+positiveInt :: ReadM PositiveInt
+positiveInt = eitherReader $ toError "Has to be positive int" . createPositiveInt . read
+
+-- partial function :(
+forcePositiveInt :: Int -> PositiveInt
+forcePositiveInt = fromJust . createPositiveInt
+
+toError :: err -> Maybe a -> Either err a
+toError _ (Just a) = Right a
+toError err _ = Left err
