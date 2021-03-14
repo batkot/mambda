@@ -7,7 +7,7 @@ module Mambda.Objects
 import Mambda.Rules
 import Mambda.Utils
 
-food :: Eq a => PositiveInt -> a -> [a] -> Object a
+food :: GameTile a => PositiveInt -> a -> [a] -> Object a
 food grow loc [] = Object loc $ scoreGame . finishGame
 food grow loc (x:xs) = Object loc 
     $ scoreGame 
@@ -19,5 +19,5 @@ food grow loc (x:xs) = Object loc
 wall :: a -> Object a
 wall loc = Object loc finishGame
 
-teleport :: Monoid a => a -> a -> Object a
+teleport :: GameTile a => a -> a -> Object a
 teleport loc movement = Object loc $ moveSnakeEffect movement

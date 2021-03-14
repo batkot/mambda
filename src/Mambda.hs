@@ -25,8 +25,7 @@ class Monad m => GameMonad m a where
 
 startGame 
     :: GameMonad m a
-    => Eq a
-    => Monoid a
+    => GameTile a
     => [Object a]
     -> a
     -> a
@@ -43,8 +42,7 @@ startGame objects initDir snakeInit foodSource = do
 
 gameLoop 
     :: GameMonad m a
-    => Eq a
-    => Monoid a
+    => GameTile a
     => Game a
     -> m (Game a)
 gameLoop game = do
@@ -62,7 +60,7 @@ data GameCommand a
     | Quit
     deriving (Show,Eq, Functor)
 
-processCommand :: (Eq a, Monoid a) => GameCommand a -> Game a -> Game a
+processCommand :: GameTile a => GameCommand a -> Game a -> Game a
 processCommand (ChangeSpeed a) game = changeSnakeSpeed a game
 processCommand Quit game = finishGame game
 processCommand TogglePause game = 
@@ -71,7 +69,7 @@ processCommand TogglePause game =
         Running -> pauseGame game
         Finished -> game
 
-step :: (Eq a, Monoid a) => Game a -> Game a
+step :: GameTile a => Game a -> Game a
 step game = 
     foldr collision movedGame $ filter ((==) snakeHead . location) $ gameObjects movedGame
   where

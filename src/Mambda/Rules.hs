@@ -1,3 +1,5 @@
+{-# LANGUAGE ConstraintKinds #-}
+
 module Mambda.Rules
     ( Game
     , newGame
@@ -5,6 +7,7 @@ module Mambda.Rules
     , gameStatus
     , gameSnake
     , gameScore
+    , GameTile
 
     , GameStatus(..)
     , Object(..)
@@ -27,6 +30,8 @@ import Mambda.Utils
 
 import Data.List (filter)
 import Data.List.NonEmpty as NE (tail)
+
+type GameTile a = (Eq a, Monoid a)
 
 data GameStatus 
     = Running 
@@ -92,7 +97,7 @@ resumeGame = changeStatus Running
 changeStatus :: GameStatus -> GameEffect a
 changeStatus status g = g { status = status }
 
-moveSnake :: Monoid a => a -> Snake a -> Snake a
+moveSnake :: GameTile a => a -> Snake a -> Snake a
 moveSnake vel snake = 
     move (getHead snake <> vel) snake
 
@@ -110,13 +115,13 @@ modifyObject f g@Game { objects = objects } = g { objects = f <$> objects }
 growSnakeEffect :: PositiveInt -> GameEffect a
 growSnakeEffect = runningGameEffect . modifySnake . increaseGrow
 
-moveSnakeEffect :: Monoid a => a -> GameEffect a
+moveSnakeEffect :: GameTile a => a -> GameEffect a
 moveSnakeEffect = runningGameEffect . modifySnake . moveSnake
 
-stepSnakeEffect :: Monoid a => GameEffect a
+stepSnakeEffect :: GameTile a => GameEffect a
 stepSnakeEffect game@Game{ snakeSpeed = snakeSpeed } = moveSnakeEffect snakeSpeed game
 
-changeSnakeSpeed :: (Eq a, Monoid a) => a -> GameEffect a
+changeSnakeSpeed :: GameTile a => a -> GameEffect a
 changeSnakeSpeed speed g@Game { snakeSpeed = snakeSpeed } 
   | snakeSpeed <> speed == mempty = g
   | otherwise = g { snakeSpeed = speed }
