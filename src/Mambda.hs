@@ -59,10 +59,12 @@ gameLoop game = do
 data GameCommand a 
     = ChangeSpeed a
     | TogglePause
+    | Quit
     deriving (Show,Eq, Functor)
 
 processCommand :: GameCommand a -> Game a -> Game a
 processCommand (ChangeSpeed a) game = changeSnakeSpeed a game
+processCommand Quit game = finishGame game
 processCommand TogglePause game = 
     case gameStatus game of
         Paused -> resumeGame game

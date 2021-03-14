@@ -88,6 +88,7 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Tile where
                         Paused -> "Paused" 
                         _ -> ""
             statusBarText statusBar offset (width, height)
+            setCursorPosition (getInt height + offset + 2) 0
             hFlush stdout
       where
         renderTile (Glyphed (Just g) (Vec2D (x,y))) = do
@@ -160,4 +161,5 @@ mapControls 'j' = Just $ ChangeSpeed south
 mapControls 'h' = Just $ ChangeSpeed west
 mapControls 'l' = Just $ ChangeSpeed east
 mapControls 'p' = Just TogglePause
+mapControls 'q' = Just Quit
 mapControls _ = Nothing
