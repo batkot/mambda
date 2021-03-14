@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveFunctor #-}
 
 module Mambda 
     ( module Snake
@@ -9,6 +10,7 @@ module Mambda
     , GameMonad(..)
     , startGame
     , gameLoop
+    , GameCommand(..)
     )
     where
 
@@ -54,3 +56,26 @@ gameLoop game = do
         _ -> gameLoop newState
   where
     foldState = foldr processCommand game
+
+data GameCommand a 
+    = ChangeSpeed a
+    | TogglePause
+    deriving (Show,Eq, Functor)
+
+processCommand :: GameCommand a -> Game a -> Game a
+processCommand (ChangeSpeed a) game = game { snakeSpeed = a }
+processCommand TogglePause game@Game{ status = status } = game { status = toggled status }
+    where
+      toggled Running = Paused
+      toggled Paused = Running
+      toggled Finished = Finished
+
+step :: (Eq a, Monoid a) => Game a -> Game a
+step game@(Game s speed objects _ Running) = 
+    newGame
+  where
+    moved = getHead s <> speed
+    movedGame = game { snake = move moved s }
+    snakeBody = snakeToObjects $ snake movedGame
+    newGame = foldr collision movedGame $ filter ((==) moved . location) $ snakeBody ++ objects
+step game = game
