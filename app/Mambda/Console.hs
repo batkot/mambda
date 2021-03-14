@@ -1,0 +1,2 @@
+module Mambda.Console 
+    where

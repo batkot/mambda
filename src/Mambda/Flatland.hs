@@ -2,6 +2,7 @@
 
 module Mambda.Flatland 
     ( Vec2D(..)
+    , createWorldMap
 
     , north
     , south
@@ -12,6 +13,8 @@ module Mambda.Flatland
 
 import Data.Semigroup
 import Data.Monoid
+
+import Mambda.Utils
 
 newtype Vec2D = Vec2D (Int,Int) deriving (Eq, Show)
 
@@ -32,3 +35,10 @@ instance Semigroup Vec2D where
 
 instance Monoid Vec2D where
     mempty = Vec2D (0,0)
+
+createWorldMap :: PositiveInt -> PositiveInt -> [Vec2D]
+createWorldMap (PositiveInt height) (PositiveInt width) = 
+    Vec2D <$> [(x,y) | x <- [1..height], y <- [0, maxWidth]] ++ [(x,y) | x <- [0, maxHeight], y <- [0..maxWidth]]
+  where
+    maxWidth = width + 1
+    maxHeight = height + 1
