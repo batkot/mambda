@@ -4,6 +4,7 @@ module Options
     where
 
 import Mambda.Utils
+import Mambda.Console (GameSettings(..))
 import Data.Maybe (fromJust)
 
 import Options.Applicative
@@ -15,14 +16,6 @@ parseSettings = execParser opts
         ( fullDesc
         <> progDesc "CLI classic Snake implementation"
         <> header "Mambda")
-
-data GameSettings = GameSettings
-    { mapHeight :: PositiveInt
-    , mapWidth :: PositiveInt
-    , fps :: PositiveInt
-    , snakeGlyph :: Char
-    , wrapMap :: Bool
-    }
 
 gameSettingsParser :: Parser GameSettings
 gameSettingsParser = GameSettings 
