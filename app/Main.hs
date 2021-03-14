@@ -43,7 +43,8 @@ startFlatGame :: (Has GameConfig m, MonadIO m) => m ()
 startFlatGame = do
     liftIO setupTerminal
     walls <- gameWalls
-    void $ startGame walls (invisible south) (visible '#' (Vec2D (1,1))) foodLocations
+    sGlyph <- snakeGlyph <$> get
+    void $ startGame walls (invisible south) (visible sGlyph (Vec2D (1,1))) foodLocations
   where
     setupTerminal = do
         hSetEcho stdin False
