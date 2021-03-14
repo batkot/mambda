@@ -62,7 +62,7 @@ data GameCommand a
     | Quit
     deriving (Show,Eq, Functor)
 
-processCommand :: GameCommand a -> Game a -> Game a
+processCommand :: (Eq a, Monoid a) => GameCommand a -> Game a -> Game a
 processCommand (ChangeSpeed a) game = changeSnakeSpeed a game
 processCommand Quit game = finishGame game
 processCommand TogglePause game = 
@@ -73,8 +73,7 @@ processCommand TogglePause game =
 
 step :: (Eq a, Monoid a) => Game a -> Game a
 step game = 
-    newGame
+    foldr collision movedGame $ filter ((==) snakeHead . location) $ gameObjects movedGame
   where
     movedGame = stepSnakeEffect game
     snakeHead = getHead . gameSnake $ movedGame
-    newGame = foldr collision movedGame $ filter ((==) snakeHead . location) $ gameObjects movedGame

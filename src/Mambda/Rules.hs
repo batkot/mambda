@@ -116,8 +116,10 @@ moveSnakeEffect = runningGameEffect . modifySnake . moveSnake
 stepSnakeEffect :: Monoid a => GameEffect a
 stepSnakeEffect game@Game{ snakeSpeed = snakeSpeed } = moveSnakeEffect snakeSpeed game
 
-changeSnakeSpeed :: a -> GameEffect a
-changeSnakeSpeed speed = runningGameEffect $ \g -> g { snakeSpeed = speed }
+changeSnakeSpeed :: (Eq a, Monoid a) => a -> GameEffect a
+changeSnakeSpeed speed g@Game { snakeSpeed = snakeSpeed } 
+  | snakeSpeed <> speed == mempty = g
+  | otherwise = g { snakeSpeed = speed }
 
 replaceObject :: Eq a => a -> Object a -> GameEffect a
 replaceObject loc obj =  runningGameEffect $ modifyObject $ \o -> if location o == loc then obj else o
