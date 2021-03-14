@@ -99,7 +99,7 @@ instance (Has GameSettings m, MonadIO m) => GameMonad m Tile where
 
 generateWorldMap :: Bool -> PositiveInt -> PositiveInt -> [Object Tile]
 generateWorldMap wrapMap (PositiveInt height) (PositiveInt width) = 
-    createWall <$> [(x,y) | x <- [0..height], y <- [0, maxWidth]] ++ [(x,y) | x <- [0, height + 1], y <- [0..maxWidth]]
+    createWall <$> [(x,y) | x <- [1..height], y <- [0, maxWidth]] ++ [(x,y) | x <- [0, maxHeight], y <- [0..maxWidth]]
   where
     maxWidth = width + 1
     maxHeight = height + 1
