@@ -78,12 +78,12 @@ instance (Has GameConfig m, MonadIO m) => GameMonad m Tile where
         offset <- getInt . printOffset <$> get
         liftIO $ do
             clearScreen
-            mapM_ renderTile . fmap location . objects $ game
-            mapM_ renderTile . body . snake $ game
+            mapM_ renderTile . fmap location . gameObjects $ game
+            renderTile . getHead . gameSnake $ game
             setCursorPosition (getInt height + offset + 1) 0
-            putStr $ "Score " ++ show (score game)
+            putStr $ "Score " ++ show (gameScore game)
             let statusBar = 
-                    case (status game) of
+                    case (gameStatus game) of
                         Finished -> "Game Over" 
                         Paused -> "Paused" 
                         _ -> ""

@@ -37,10 +37,9 @@ startGame objects initDir snakeInit foodSource = do
     let obj = case f of 
                 [] -> objects
                 (x:xs) -> food one x xs : objects
-    gameLoop $ newGame obj
+    gameLoop $ Rules.newGame snake initDir obj
   where
     snake = createSnake snakeInit
-    newGame objects = Game snake initDir objects 0 Running
 
 gameLoop 
     :: GameMonad m a
@@ -51,7 +50,7 @@ gameLoop
 gameLoop game = do
     newState <- step . foldState <$> getCommands 
     renderGame newState
-    case status newState of 
+    case gameStatus newState of 
         Finished -> return newState
         _ -> gameLoop newState
   where
@@ -63,19 +62,17 @@ data GameCommand a
     deriving (Show,Eq, Functor)
 
 processCommand :: GameCommand a -> Game a -> Game a
-processCommand (ChangeSpeed a) game = game { snakeSpeed = a }
-processCommand TogglePause game@Game{ status = status } = game { status = toggled status }
-    where
-      toggled Running = Paused
-      toggled Paused = Running
-      toggled Finished = Finished
+processCommand (ChangeSpeed a) game = changeSnakeSpeed a game
+processCommand TogglePause game = 
+    case gameStatus game of
+        Paused -> resumeGame game
+        Running -> pauseGame game
+        Finished -> game
 
 step :: (Eq a, Monoid a) => Game a -> Game a
-step game@(Game s speed objects _ Running) = 
+step game = 
     newGame
   where
-    moved = getHead s <> speed
-    movedGame = game { snake = move moved s }
-    snakeBody = snakeToObjects $ snake movedGame
-    newGame = foldr collision movedGame $ filter ((==) moved . location) $ snakeBody ++ objects
-step game = game
+    movedGame = stepSnakeEffect game
+    snakeHead = getHead . gameSnake $ movedGame
+    newGame = foldr collision movedGame $ filter ((==) snakeHead . location) $ gameObjects movedGame
