@@ -1,6 +1,4 @@
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE TemplateHaskell #-}
-
 module Mambda.Rules
     where
 
@@ -24,9 +22,11 @@ data Game a = Game
     , status :: GameStatus
     } deriving (Show, Eq)
 
+type GameEffect a = Game a -> Game a
+
 data Object a = Object
     { location :: a
-    , collision :: Game a -> Game a
+    , collision :: GameEffect a
     } 
 
 instance Show a => Show (Object a) where
@@ -35,27 +35,8 @@ instance Show a => Show (Object a) where
 instance Eq a => Eq (Object a) where
     (Object a _)  == (Object b _) = a == b
 
-food :: Eq a => PositiveInt -> a -> [a] -> Object a
-food grow loc [] = Object loc $ scoreGame . finishGame
-food grow loc (x:xs) = Object loc $ scoreGame . \g ->
-    let newFood = food grow x xs
-        objs = filter ((/=) loc . location) . objects $ g
-    in g 
-        { snake = increaseGrow grow . snake $ g 
-        , objects = newFood : objs
-        }
-
-scoreGame :: Game a -> Game a
+scoreGame :: GameEffect a
 scoreGame g  = g { score = (+1) . score $ g }
-
-wall :: Eq a => a -> Object a
-wall loc = Object loc finishGame
-
-teleport :: Eq a => a -> a -> Object a
-teleport loc destination = Object loc $ 
-    \g -> g 
-    { snake = move destination . snake $ g
-    }
 
 snakeToObjects :: Snake a -> [Object a]
 snakeToObjects = fmap makeCollisionObject . snakeBody
@@ -63,17 +44,37 @@ snakeToObjects = fmap makeCollisionObject . snakeBody
     snakeBody = NE.tail . body 
     makeCollisionObject loc = Object loc finishGame
 
-finishGame :: Game a -> Game a
+finishGame :: GameEffect a
 finishGame g = g { status = Finished }
+
+moveSnake :: Monoid a => a -> Snake a -> Snake a
+moveSnake vel snake = 
+    move (getHead snake <> vel) snake
+
+-- Lens
+modifySnake :: (Snake a -> Snake a) -> GameEffect a
+modifySnake f g@Game{ snake = snake } = g { snake = f snake }
+
+modifyObject :: (Object a -> Object a) -> GameEffect a
+modifyObject f g@Game { objects = objects } = g { objects = f <$> objects }
+
+growSnakeEffect :: PositiveInt -> GameEffect a
+growSnakeEffect grow = modifySnake $ increaseGrow grow
+
+moveSnakeEffect :: Monoid a => a -> GameEffect a
+moveSnakeEffect vel = modifySnake $ moveSnake vel
+
+replaceObject :: Eq a => a -> Object a -> GameEffect a
+replaceObject loc obj =  modifyObject $ \o -> if location o == loc then obj else o
 
 data GameCommand a 
     = ChangeSpeed a
     | TogglePause
     deriving (Show,Eq, Functor)
 
-processCommand :: Game a -> GameCommand a -> Game a
-processCommand game (ChangeSpeed a) = game { snakeSpeed = a }
-processCommand game@(Game _ _ _ _ status) TogglePause = game { status = toggled status }
+processCommand :: GameCommand a -> Game a -> Game a
+processCommand (ChangeSpeed a) game = game { snakeSpeed = a }
+processCommand TogglePause game@Game{ status = status } = game { status = toggled status }
     where
       toggled Running = Paused
       toggled Paused = Running

@@ -61,15 +61,6 @@ startFlatGame = do
       where
         both f = BF.bimap f f
         
-
-
-    -- randomObject = do
-    --     (width, height) <- both (flip (-) 1 . getInt) . (mapWidth &&& mapHeight) <$> get
-    --     loc <- liftIO $ Vec2D . BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
-    --     loc2 <- liftIO $ Vec2D . BF.second (fst . randomR (0, width - 1)) . randomR (0, height - 1) <$> newStdGen
-    --     return $ food one (visible '@' loc) [visible '@' loc2]
-    --       where
-    --         both f = BF.bimap f f
 class Has a m where
     get :: m a
 
@@ -123,7 +114,7 @@ generateWorldMap wrapMap (PositiveInt height) (PositiveInt width) =
     maxHeight = height + 1
     createWall (x,y) = 
         if wrapMap then teleport wallGlyph teleportGlyph
-                   else wall $ visible (glyph x y) $ Vec2D (x,y)
+                   else wall wallGlyph
       where
         glyph x y
             | (x,y) `elem` corners = '+'
@@ -133,9 +124,9 @@ generateWorldMap wrapMap (PositiveInt height) (PositiveInt width) =
         wallGlyph = visible (glyph x y) $ Vec2D (x,y)
         foo m x 
           | x == 0 = m - 1
-          | x == m = 1
-          | otherwise = x
-        teleportGlyph = visible '#' $ Vec2D (foo maxHeight x, foo maxWidth y)
+          | x == m = 1 - m
+          | otherwise = 0
+        teleportGlyph = invisible $ Vec2D (foo maxHeight x, foo maxWidth y)
 
 -- Input
 type Fps = PositiveInt

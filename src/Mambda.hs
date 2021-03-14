@@ -4,6 +4,8 @@ module Mambda
     ( module Snake
     , module Rules
     , module Utils
+    , module Objects
+
     , GameMonad(..)
     , startGame
     , gameLoop
@@ -13,6 +15,7 @@ module Mambda
 import Mambda.Snake as Snake
 import Mambda.Rules as Rules
 import Mambda.Utils as Utils
+import Mambda.Objects as Objects
 
 class Monad m => GameMonad m a where
     getCommands :: m [GameCommand a]
@@ -50,4 +53,4 @@ gameLoop game = do
         Finished -> return newState
         _ -> gameLoop newState
   where
-    foldState = foldl processCommand game
+    foldState = foldr processCommand game
