@@ -29,11 +29,10 @@ startGame
     => [Object a]
     -> a
     -> a
-    -> m [a]
+    -> [a]
     -> m (Game a)
 startGame objects initDir snakeInit foodSource = do
-    f <- foodSource
-    let obj = case f of 
+    let obj = case foodSource of 
                 [] -> objects
                 (x:xs) -> food one x xs : objects
     gameLoop $ Rules.newGame snake initDir obj

@@ -1,6 +1,9 @@
 module Mambda.Console.Rendering
     ( initialize
+    , release
+
     , renderGame
+    , RenderingHandle
     ) where
 
 import Mambda.Console.World
@@ -8,15 +11,21 @@ import Mambda.Console.World
 import Mambda hiding (GameMonad(..))
 import Mambda.Flatland (Vec2D(..))
 
-import System.Console.ANSI (hideCursor, setTitle, setCursorPosition, clearScreen)
+import System.Console.ANSI (hideCursor, setTitle, setCursorPosition, clearScreen, showCursor)
 import System.IO (hSetEcho, stdin, hFlush, stdout, hReady, hSetBuffering, BufferMode(..))
 
-initialize :: IO ()
+data RenderingHandle = RenderingHandle
+
+initialize :: IO RenderingHandle
 initialize = do
     hSetEcho stdin False
     hSetBuffering stdin NoBuffering
     hideCursor
     setTitle "Mambda"
+    return RenderingHandle
+
+release :: RenderingHandle -> IO ()
+release _ = showCursor
 
 renderGame :: PositiveInt -> PositiveInt -> Game Tile -> IO ()
 renderGame (PositiveInt height) (PositiveInt width) game = do
