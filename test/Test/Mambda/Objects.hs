@@ -5,16 +5,13 @@ module Test.Mambda.Objects
 import Mambda.Objects
 import Mambda.Rules
 
-import Test.Mambda.Rules -- to import arbitrary instances
-import Test.Mambda.Utils
+import Test.Mambda.Arbitrary
 
 import Data.Monoid (Sum)
 import Data.List (nub)
 
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
-
-import Test.QuickCheck (Arbitrary(..), elements, listOf1)
 
 test_objects :: TestTree
 test_objects = testGroup "Objects tests" 
@@ -46,22 +43,3 @@ food_notLastFoodShouldKeepGameGoing (RunningGame game) (NotLastFood food _) =
 food_notLastNumberOfObjectsShouldBeConst :: RunningGame (Sum Int) -> NotLastFood (Sum Int) -> Bool
 food_notLastNumberOfObjectsShouldBeConst (RunningGame game) (NotLastFood food _) = 
     (length . gameObjects . collision food) game == (length . gameObjects) game
-
-newtype LastFood a = LastFood (Object a) deriving (Eq, Show)
-newtype Food a = Food (Object a) deriving (Eq, Show)
-data NotLastFood a = NotLastFood 
-    { currentFood :: (Object a)
-    , nextFoodLoc :: a 
-    } deriving (Eq, Show)
-
-instance (Arbitrary a, GameTile a) => Arbitrary (LastFood a) where
-    arbitrary = fmap LastFood $ food <$> arbitrary <*> arbitrary <*> pure []
-
-instance (Arbitrary a, GameTile a) => Arbitrary (Food a) where
-    arbitrary = fmap Food $ food <$> arbitrary <*> arbitrary <*> arbitrary
-
-instance (Arbitrary a, GameTile a) => Arbitrary (NotLastFood a) where
-    arbitrary = do 
-        next <- nub <$> listOf1 arbitrary
-        current <- food <$> arbitrary <*> arbitrary <*> pure next
-        return $ NotLastFood current (head next)

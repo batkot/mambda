@@ -9,10 +9,10 @@ import Mambda.Snake
 
 import Data.List.NonEmpty as NE
 
+import Test.Mambda.Arbitrary
+
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
-
-import Test.QuickCheck (Arbitrary(..), elements)
 
 type TestSnakeCell = Int
 
@@ -70,22 +70,3 @@ move_growingSnakeGrowFactorShouldDecrease newHead (GrowingSnake snake) =
 move_growingSnakeTailShouldbeWholeOldSnake :: SnakeMoveProperty GrowingSnake
 move_growingSnakeTailShouldbeWholeOldSnake newHead (GrowingSnake snake) =
     (NE.toList . body) snake == (NE.tail . body . move newHead) snake
-    
--- Arbitrary
-instance Arbitrary a => Arbitrary (Snake a) where
-    arbitrary = Snake <$> fmap abs arbitrary <*> arbitrary
-
-instance Arbitrary a => Arbitrary (NonEmpty a) where
-    arbitrary = (:|) <$> arbitrary <*> arbitrary
-
-newtype NonGrowingSnake a = NonGrowingSnake { getNonGrowingSnake :: Snake a } deriving (Eq, Show)
-
-instance Arbitrary a => Arbitrary (NonGrowingSnake a) where
-    arbitrary = NonGrowingSnake . Snake 0 <$> arbitrary
-
-newtype GrowingSnake a = GrowingSnake { getGrowingSnake :: Snake a } deriving (Eq, Show)
-
-instance Arbitrary a => Arbitrary (GrowingSnake a) where
-    arbitrary = GrowingSnake <$> fmap increaseGrow arbitrary
-      where
-        increaseGrow (Snake g x) = Snake (g+1) x
