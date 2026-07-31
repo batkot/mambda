@@ -10,7 +10,7 @@ extra-source-files:
 - README.md
 
 # Metadata used when publishing your package
-synopsis:            CLI Snake 
+synopsis:            CLI Snake
 category:            games
 
 description:         Please see the README on GitHub at <https://github.com/batkot/mambda#readme>
@@ -22,7 +22,7 @@ library:
   source-dirs: src
 
 executables:
-  mambda:
+  mambda-old:
     main:                Main.hs
     source-dirs:         app
     ghc-options:

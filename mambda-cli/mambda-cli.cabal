@@ -38,6 +38,25 @@ library
       base >=4.7 && <5
   default-language: GHC2024
 
+executable mambda
+  main-is: Main.hs
+  other-modules:
+      Paths_mambda_cli
+  hs-source-dirs:
+      app
+  default-extensions:
+      NoFieldSelectors
+      NoImplicitPrelude
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , brick
+    , bytestring
+    , file-embed
+    , mambda-cli
+    , text
+  default-language: GHC2024
+
 test-suite unit
   type: exitcode-stdio-1.0
   main-is: Spec.hs
