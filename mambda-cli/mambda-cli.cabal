@@ -1,0 +1,61 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.38.3.
+--
+-- see: https://github.com/sol/hpack
+
+name:           mambda-cli
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/batkot/mambda#readme>
+homepage:       https://github.com/batkot/mambda#readme
+bug-reports:    https://github.com/batkot/mambda/issues
+author:         Tomasz Batko
+maintainer:     batkot@protonmail.com
+copyright:      2026 Tomasz Batko
+license:        MIT
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/batkot/mambda
+
+library
+  exposed-modules:
+      Mambda.Lib
+  other-modules:
+      Paths_mambda_cli
+  hs-source-dirs:
+      src
+  default-extensions:
+      NoFieldSelectors
+      NoImplicitPrelude
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      base >=4.7 && <5
+  default-language: GHC2024
+
+test-suite unit
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_mambda_cli
+  hs-source-dirs:
+      test
+  default-extensions:
+      NoFieldSelectors
+      NoImplicitPrelude
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      HUnit
+    , QuickCheck
+    , base >=4.7 && <5
+    , mambda-cli
+    , tasty
+    , tasty-discover
+    , tasty-hunit
+    , tasty-quickcheck
+  default-language: GHC2024

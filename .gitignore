@@ -1,3 +1,5 @@
+.direnv/
+dist-newstyle/
 .stack-work/
 mambda.cabal
 *~
