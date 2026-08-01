@@ -55,6 +55,7 @@ executable mambda
     , file-embed
     , mambda-cli
     , text
+    , vty
   default-language: GHC2024
 
 test-suite unit

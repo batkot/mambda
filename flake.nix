@@ -28,11 +28,6 @@
         haskellPkgs = pkgs.haskell.packages.${ghc}.override {
           overrides = ghcSelf: ghcSuper: {
             mambda-cli = ghcSuper.callCabal2nix "mambda-cli" ./mambda-cli {};
-            # ghc-trace-events = pkgs.haskell.lib.doJailbreak ghcSuper.ghc-trace-events;
-            # dec = pkgs.haskell.lib.doJailbreak ghcSuper.dec;
-            # hie-compat = pkgs.haskell.lib.doJailbreak ghcSuper.hie-compat;
-            # cabal-syntax = pkgs.haskell.lib.doJailbreak ghcSuper.cabal-syntax;
-            # ghc-lib-parser = pkgs.haskell.lib.doJailbreak ghcSuper.ghc-lib-parser;
           };
         };
         pre-commit = pre-commit-hooks.lib.${system}.run {
