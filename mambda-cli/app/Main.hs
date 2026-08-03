@@ -6,18 +6,37 @@ import Brick qualified
 import Graphics.Vty qualified as Vty
 
 import Control.Monad (void)
+import Data.List.NonEmpty
+import Data.Text qualified as Text
+import Mambda.Game qualified as Game
 import Mambda.MainMenu qualified as MainMenu
 
-newtype MambdaCliState
-    = Menu MainMenu.State
+data MambdaCliState
+    = Menu (MainMenu.State MenuItem)
+    | Game Game.State
     deriving stock (Show, Eq, Ord)
 
 data MambdaCliResource = MambdaCliResource
     deriving stock (Show, Eq, Ord)
 
+data MenuItem = MenuItem
+    { label :: Text.Text
+    , transitionTo :: MambdaCliState
+    }
+    deriving stock (Show, Eq, Ord)
+
+instance MainMenu.MenuItem MenuItem where
+    toMenuItem MenuItem{label} = label
+
+mainMenu :: NonEmpty MenuItem
+mainMenu =
+    MenuItem{label = "Start Game", transitionTo = Game Game.initState}
+        :| [ MenuItem{label = "Scoreboard", transitionTo = Game Game.initState}
+           ]
+
 main :: IO ()
 main =
-    void $ Brick.defaultMain app $ Menu MainMenu.initState
+    void $ Brick.defaultMain app $ Menu $ MainMenu.initState mainMenu
   where
     app :: Brick.App MambdaCliState () MambdaCliResource
     app =
@@ -35,8 +54,14 @@ main =
         state <- Brick.get
         case state of
             Menu menuState -> do
-                newMenuState <- Brick.nestEventM' menuState (MainMenu.handleEvent ev)
-                Brick.put $ Menu newMenuState
+                (newMenuState, proceed) <- Brick.nestEventM menuState (MainMenu.handleEvent ev)
+                case proceed of
+                    Nothing -> Brick.put $ Menu newMenuState
+                    Just MenuItem{transitionTo} -> Brick.put transitionTo
+            Game gameState -> do
+                newGameState <- Brick.nestEventM' gameState (Game.handleEvent ev)
+                Brick.put $ Game newGameState
     drawUI :: MambdaCliState -> [Brick.Widget MambdaCliResource]
     drawUI = \case
         Menu menuState -> [MainMenu.render menuState]
+        Game gameState -> [Game.render gameState]

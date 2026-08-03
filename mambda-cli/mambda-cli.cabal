@@ -42,6 +42,7 @@ library
 executable mambda
   main-is: Main.hs
   other-modules:
+      Mambda.Game
       Mambda.MainMenu
       Paths_mambda_cli
   hs-source-dirs:

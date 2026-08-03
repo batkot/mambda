@@ -5,6 +5,7 @@ module Mambda.MainMenu (
     initState,
     render,
     handleEvent,
+    MenuItem (..),
 ) where
 
 import Prelude
@@ -20,10 +21,8 @@ import Data.List.NonEmpty
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
 
-data MenuItem = MenuItem
-    { label :: !Text.Text
-    }
-    deriving stock (Show, Eq, Ord)
+class MenuItem a where
+    toMenuItem :: a -> Text.Text
 
 data ListZipper a = ListZipper
     { previous :: ![a]
@@ -40,16 +39,19 @@ previous :: ListZipper a -> ListZipper a
 previous x@(ListZipper [] _ _) = x
 previous (ListZipper (p : ps) c n) = ListZipper ps p (c : n)
 
+current :: ListZipper a -> a
+current ListZipper{current} = current
+
 fromNonEmpty :: NonEmpty a -> ListZipper a
 fromNonEmpty (x :| xs) = ListZipper [] x xs
 
-newtype State = State
-    { menuItems :: ListZipper MenuItem
+newtype State a = State
+    { menuItems :: ListZipper a
     }
     deriving stock (Show, Eq, Ord)
 
-initState :: State
-initState = State $ fromNonEmpty $ MenuItem <$> "New Game" :| ["Quit"]
+initState :: NonEmpty a -> State a
+initState = State . fromNonEmpty
 
 logo :: Brick.Widget n
 logo =
@@ -57,14 +59,19 @@ logo =
   where
     logoTxt = Text.unpack $ Text.decodeUtf8 $ $(FileEmbed.embedFileRelative "data/logo.txt")
 
-handleEvent :: Brick.BrickEvent n () -> Brick.EventM n State ()
-handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) =
+handleEvent :: Brick.BrickEvent n () -> Brick.EventM n (State a) (Maybe a)
+handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) = do
     Brick.modify $ \(State items) -> State $ next items
-handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) =
+    pure Nothing
+handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) = do
     Brick.modify $ \(State items) -> State $ previous items
-handleEvent _ = pure ()
+    pure Nothing
+handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) = do
+    State items <- Brick.get
+    pure $ Just $ current items
+handleEvent _ = pure Nothing
 
-render :: State -> Brick.Widget n
+render :: (MenuItem a) => State a -> Brick.Widget n
 render State{menuItems} =
     Brick.center $
         Brick.vCenter (logo <=> menu)
@@ -72,8 +79,8 @@ render State{menuItems} =
     ListZipper prev curr next = menuItems
     menu = Brick.vBox $ fmap renderMenuItem prev <> [renderCurrentItem curr] <> fmap renderMenuItem next
 
-renderMenuItem :: MenuItem -> Brick.Widget n
-renderMenuItem MenuItem{label} = Brick.str $ Text.unpack label
+renderMenuItem :: (MenuItem a) => a -> Brick.Widget n
+renderMenuItem menuItem = Brick.str $ Text.unpack $ toMenuItem menuItem
 
-renderCurrentItem :: MenuItem -> Brick.Widget n
-renderCurrentItem MenuItem{label} = Brick.str $ "> " <> Text.unpack label
+renderCurrentItem :: (MenuItem a) => a -> Brick.Widget n
+renderCurrentItem menuItem = Brick.str $ "> " <> Text.unpack (toMenuItem menuItem)
