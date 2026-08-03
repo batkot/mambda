@@ -16,6 +16,7 @@ import Brick.Widgets.Center qualified as Brick
 import Graphics.Vty qualified as Vty
 
 import Data.FileEmbed as FileEmbed
+import Data.List qualified as List
 import Data.List.NonEmpty
 
 import Data.Text qualified as Text
@@ -77,7 +78,7 @@ render State{menuItems} =
         Brick.vCenter (logo <=> menu)
   where
     ListZipper prev curr next = menuItems
-    menu = Brick.vBox $ fmap renderMenuItem prev <> [renderCurrentItem curr] <> fmap renderMenuItem next
+    menu = Brick.vBox $ fmap renderMenuItem (List.reverse prev) <> [renderCurrentItem curr] <> fmap renderMenuItem next
 
 renderMenuItem :: (MenuItem a) => a -> Brick.Widget n
 renderMenuItem menuItem = Brick.str $ Text.unpack $ toMenuItem menuItem

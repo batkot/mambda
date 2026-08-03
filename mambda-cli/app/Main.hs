@@ -32,6 +32,7 @@ mainMenu :: NonEmpty MenuItem
 mainMenu =
     MenuItem{label = "Start Game", transitionTo = Game Game.initState}
         :| [ MenuItem{label = "Scoreboard", transitionTo = Game Game.initState}
+           , MenuItem{label = "Test", transitionTo = Game Game.initState}
            ]
 
 main :: IO ()
