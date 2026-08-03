@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Main (main) where
 
 import Prelude
@@ -7,20 +5,10 @@ import Prelude
 import Brick qualified
 import Graphics.Vty qualified as Vty
 
-import Data.FileEmbed as FileEmbed
-
 import Control.Monad (void)
-import Data.Text qualified as Text
-import Data.Text.Encoding qualified as Text
 import Mambda.MainMenu qualified as MainMenu
 
-logo :: Brick.Widget n
-logo =
-    Brick.str logoTxt
-  where
-    logoTxt = Text.unpack $ Text.decodeUtf8 $ $(FileEmbed.embedFileRelative "data/logo.txt")
-
-data MambdaCliState
+newtype MambdaCliState
     = Menu MainMenu.State
     deriving stock (Show, Eq, Ord)
 
