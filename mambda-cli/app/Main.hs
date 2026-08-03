@@ -5,9 +5,6 @@ module Main (main) where
 import Prelude
 
 import Brick qualified
-import Brick.Widgets.Border qualified as Brick
-import Brick.Widgets.Border.Style qualified as Brick
-import Brick.Widgets.Center qualified as Brick
 import Graphics.Vty qualified as Vty
 
 import Data.FileEmbed as FileEmbed
@@ -15,6 +12,7 @@ import Data.FileEmbed as FileEmbed
 import Control.Monad (void)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
+import Mambda.MainMenu qualified as MainMenu
 
 logo :: Brick.Widget n
 logo =
@@ -23,7 +21,7 @@ logo =
     logoTxt = Text.unpack $ Text.decodeUtf8 $ $(FileEmbed.embedFileRelative "data/logo.txt")
 
 data MambdaCliState
-    = Menu
+    = Menu MainMenu.State
     deriving stock (Show, Eq, Ord)
 
 data MambdaCliResource = MambdaCliResource
@@ -31,24 +29,26 @@ data MambdaCliResource = MambdaCliResource
 
 main :: IO ()
 main =
-    void $ Brick.defaultMain app Menu
+    void $ Brick.defaultMain app $ Menu MainMenu.initState
   where
     app :: Brick.App MambdaCliState () MambdaCliResource
     app =
         Brick.App
-            { appDraw = const [ui]
+            { appDraw = drawUI
             , appChooseCursor = \_ _ -> Nothing
             , appHandleEvent = handleEvent
             , appStartEvent = pure ()
             , appAttrMap = const $ Brick.attrMap Vty.defAttr []
             }
-    ui :: Brick.Widget n
-    ui =
-        Brick.center $
-            Brick.joinBorders $
-                Brick.withBorderStyle Brick.unicode $
-                    Brick.borderWithLabel (Brick.str "Mambda") logo
     handleEvent :: Brick.BrickEvent MambdaCliResource () -> Brick.EventM MambdaCliResource MambdaCliState ()
     handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'q') [])) = Brick.halt
     handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEsc [])) = Brick.halt
-    handleEvent _ = pure ()
+    handleEvent ev = do
+        state <- Brick.get
+        case state of
+            Menu menuState -> do
+                newMenuState <- Brick.nestEventM' menuState (MainMenu.handleEvent ev)
+                Brick.put $ Menu newMenuState
+    drawUI :: MambdaCliState -> [Brick.Widget MambdaCliResource]
+    drawUI = \case
+        Menu menuState -> [MainMenu.render menuState]
