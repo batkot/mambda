@@ -9,3 +9,6 @@ build: hpack
 
 test:
     cabal test all
+
+run:
+    cabal run mambda-cli:mambda
