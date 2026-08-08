@@ -60,7 +60,7 @@ logo =
   where
     logoTxt = Text.unpack $ Text.decodeUtf8 $ $(FileEmbed.embedFileRelative "data/logo.txt")
 
-handleEvent :: Brick.BrickEvent n () -> Brick.EventM n (State a) (Maybe a)
+handleEvent :: Brick.BrickEvent n e -> Brick.EventM n (State a) (Maybe a)
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) = do
     Brick.modify $ \(State items) -> State $ next items
     pure Nothing

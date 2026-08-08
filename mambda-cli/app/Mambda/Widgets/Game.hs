@@ -35,7 +35,8 @@ renderGlyph SnakeHead = Brick.withAttr snakeAttr $ Brick.str "██"
 initState :: State
 initState = State $ runIdentity Game.initWorld
 
-handleEvent :: Brick.BrickEvent n () -> Brick.EventM n State ()
+handleEvent :: Brick.BrickEvent n e -> Brick.EventM n State ()
+handleEvent (Brick.AppEvent _) = Brick.modify $ \(State g) -> State $ runIdentity $ Game.step g
 handleEvent _ = pure ()
 
 render :: State -> Brick.Widget n

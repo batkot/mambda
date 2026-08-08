@@ -37,7 +37,10 @@ initWorld :: (Monad m) => m (State m)
 initWorld = State . snd <$> Aztecs.runAccess sampleWorld World.empty
 
 gameStep :: (Monad m) => Aztecs.Access m ()
-gameStep = pure ()
+gameStep =
+    void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMapWith move Aztecs.query
+  where
+    move (Velocity v) (Position pos) = Position $ pos + v
 
 step :: (Monad m) => State m -> m (State m)
 step (State world) = State . snd <$> Aztecs.runAccess gameStep world

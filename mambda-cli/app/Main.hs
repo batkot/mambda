@@ -3,9 +3,11 @@ module Main (main) where
 import Prelude
 
 import Brick qualified
+import Brick.BChan qualified as BChan
 import Graphics.Vty qualified as Vty
 
-import Control.Monad (void)
+import Control.Concurrent qualified as Concurrent
+import Control.Monad (forever, void)
 import Data.List.NonEmpty
 import Data.Text qualified as Text
 import Mambda.Widgets.Game qualified as Game
@@ -26,6 +28,8 @@ data MenuItem = MenuItem
 instance MainMenu.MenuItem MenuItem where
     toMenuItem MenuItem{label} = label
 
+data MambdaEvent = Tick
+
 mainMenu :: NonEmpty MenuItem
 mainMenu =
     MenuItem{label = "Start Game", transitionTo = Game Game.initState}
@@ -34,10 +38,14 @@ mainMenu =
            ]
 
 main :: IO ()
-main =
-    void $ Brick.defaultMain app $ Menu $ MainMenu.initState mainMenu
+main = do
+    tickChan <- BChan.newBChan 10
+    void $ Concurrent.forkIO $ forever $ do
+        BChan.writeBChan tickChan Tick
+        Concurrent.threadDelay 1_000_000
+    void $ Brick.customMainWithDefaultVty (Just tickChan) app $ Menu $ MainMenu.initState mainMenu
   where
-    app :: Brick.App MambdaCliState () MambdaCliResource
+    app :: Brick.App MambdaCliState MambdaEvent MambdaCliResource
     app =
         Brick.App
             { appDraw = drawUI
@@ -46,7 +54,7 @@ main =
             , appStartEvent = pure ()
             , appAttrMap = const $ Game.attributeMap
             }
-    handleEvent :: Brick.BrickEvent MambdaCliResource () -> Brick.EventM MambdaCliResource MambdaCliState ()
+    handleEvent :: Brick.BrickEvent MambdaCliResource MambdaEvent -> Brick.EventM MambdaCliResource MambdaCliState ()
     handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'q') [])) = Brick.halt
     handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEsc [])) = Brick.halt
     handleEvent ev = do
