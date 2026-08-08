@@ -8,13 +8,12 @@ import Graphics.Vty qualified as Vty
 import Control.Monad (void)
 import Data.List.NonEmpty
 import Data.Text qualified as Text
-import Mambda.Game qualified as Game
-import Mambda.MainMenu qualified as MainMenu
+import Mambda.Widgets.Game qualified as Game
+import Mambda.Widgets.MainMenu qualified as MainMenu
 
 data MambdaCliState
     = Menu (MainMenu.State MenuItem)
     | Game Game.State
-    deriving stock (Show, Eq, Ord)
 
 data MambdaCliResource = MambdaCliResource
     deriving stock (Show, Eq, Ord)
@@ -23,7 +22,6 @@ data MenuItem = MenuItem
     { label :: Text.Text
     , transitionTo :: MambdaCliState
     }
-    deriving stock (Show, Eq, Ord)
 
 instance MainMenu.MenuItem MenuItem where
     toMenuItem MenuItem{label} = label
@@ -46,7 +44,7 @@ main =
             , appChooseCursor = \_ _ -> Nothing
             , appHandleEvent = handleEvent
             , appStartEvent = pure ()
-            , appAttrMap = const $ Brick.attrMap Vty.defAttr []
+            , appAttrMap = const $ Game.attributeMap
             }
     handleEvent :: Brick.BrickEvent MambdaCliResource () -> Brick.EventM MambdaCliResource MambdaCliState ()
     handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'q') [])) = Brick.halt

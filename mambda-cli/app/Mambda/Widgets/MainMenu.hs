@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Mambda.MainMenu (
+module Mambda.Widgets.MainMenu (
     State,
     initState,
     render,

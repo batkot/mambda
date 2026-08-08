@@ -40,13 +40,14 @@ library
       aztecs
     , base >=4.7 && <5
     , linear
+    , vector
   default-language: GHC2024
 
 executable mambda
   main-is: Main.hs
   other-modules:
-      Mambda.Game
-      Mambda.MainMenu
+      Mambda.Widgets.Game
+      Mambda.Widgets.MainMenu
       Paths_mambda_cli
   hs-source-dirs:
       app
@@ -61,6 +62,7 @@ executable mambda
     , base >=4.7 && <5
     , brick
     , bytestring
+    , containers
     , file-embed
     , linear
     , mambda-cli
@@ -93,4 +95,5 @@ test-suite unit
     , tasty-discover
     , tasty-hunit
     , tasty-quickcheck
+    , vector
   default-language: GHC2024
