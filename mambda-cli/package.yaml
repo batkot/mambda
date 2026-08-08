@@ -12,6 +12,7 @@ default-extensions:
 - NoFieldSelectors
 - NoImplicitPrelude
 - OverloadedStrings
+- DeriveAnyClass
 
 extra-source-files:
 - README.md
@@ -27,7 +28,9 @@ extra-source-files:
 description:         Please see the README on GitHub at <https://github.com/batkot/mambda#readme>
 
 dependencies:
+- aztecs
 - base >= 4.7 && < 5
+- linear
 
 ghc-options:
 - -Wall
