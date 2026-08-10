@@ -10,9 +10,6 @@ import Prelude
 
 import Data.Functor.Identity
 
-import Data.Map (Map)
-import Data.Map qualified as Map
-
 import Brick qualified
 import Brick.Widgets.Center qualified as Brick
 import Mambda.Game qualified as Game
@@ -20,14 +17,14 @@ import Mambda.Game qualified as Game
 import Brick.Widgets.Border qualified as Brick
 import Data.Vector qualified as Vector
 import Graphics.Vty qualified as Vty
-import Linear
 
 newtype State = State (Game.State Identity)
 
 renderGlyph :: Game.Glyph -> Brick.Widget n
 renderGlyph Game.Empty = Brick.withAttr emptyAttr $ Brick.str "██"
 renderGlyph Game.Snake = Brick.withAttr snakeAttr $ Brick.str "██"
-renderGlyph Game.Wall = Brick.withAttr snakeAttr $ Brick.str "██"
+renderGlyph Game.SnakeSegment = Brick.withAttr snakeSegmentAttr $ Brick.str "██"
+renderGlyph Game.Wall = Brick.withAttr wallAttr $ Brick.str "██"
 
 initState :: State
 initState = State $ runIdentity Game.init
@@ -64,12 +61,20 @@ attributeMap :: Brick.AttrMap
 attributeMap =
     Brick.attrMap
         Vty.defAttr
-        [ (snakeAttr, Vty.green `Brick.on` Vty.green)
+        [ (snakeAttr, Vty.brightGreen `Brick.on` Vty.brightGreen)
+        , (snakeSegmentAttr, Vty.green `Brick.on` Vty.green)
         , (emptyAttr, Vty.black `Brick.on` Vty.black)
+        , (wallAttr, Vty.brightBlack `Brick.on` Vty.brightBlack)
         ]
 
 snakeAttr :: Brick.AttrName
 snakeAttr = Brick.attrName "snake"
 
+snakeSegmentAttr :: Brick.AttrName
+snakeSegmentAttr = Brick.attrName "snakeSegment"
+
 emptyAttr :: Brick.AttrName
 emptyAttr = Brick.attrName "empty"
+
+wallAttr :: Brick.AttrName
+wallAttr = Brick.attrName "wall"
