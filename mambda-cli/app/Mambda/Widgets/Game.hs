@@ -31,6 +31,14 @@ initState = State $ runIdentity Game.init
 
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n State ()
 handleEvent (Brick.AppEvent _) = Brick.modify $ \(State g) -> State $ runIdentity $ Game.step g
+handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) =
+    Brick.modify $ \(State g) -> State $ runIdentity $ Game.control Game.up g
+handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) =
+    Brick.modify $ \(State g) -> State $ runIdentity $ Game.control Game.down g
+handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KLeft [])) =
+    Brick.modify $ \(State g) -> State $ runIdentity $ Game.control Game.left g
+handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KRight [])) =
+    Brick.modify $ \(State g) -> State $ runIdentity $ Game.control Game.right g
 handleEvent _ = pure ()
 
 render :: State -> Brick.Widget n
@@ -42,20 +50,6 @@ render (State s) =
     Game.Render r = runIdentity $ Game.render s
     frame = Brick.vBox $ Vector.toList $ fmap renderRow r
     renderRow v = Brick.hBox $ Vector.toList $ renderGlyph <$> v
-
--- emptyGrid :: Map Integer (Map Integer Glyph)
--- emptyGrid = Map.fromList $ do
---     x <- [1 .. 10]
---     pure $ (x, Map.fromList $ [(y, Empty) | y <- [1 .. 10]])
--- renderGrid :: Map Integer (Map Integer Glyph) -> Brick.Widget n
--- renderGrid m =
---     let rows = Map.elems m
---         renderCol map' = Brick.hBox $ renderGlyph <$> Map.elems map'
---      in Brick.vBox $ renderCol <$> rows
--- foo = runIdentity $ Game.render s
--- updateElement :: Glyph -> Integer -> Integer -> Map Integer (Map Integer Glyph) -> Map Integer (Map Integer Glyph)
--- updateElement glyph x y = Map.update (Just . Map.insert y glyph) x
--- frameGrid = Vector.foldl' (\m (Game.Position (V2 x y)) -> updateElement SnakeHead x y m) emptyGrid foo
 
 attributeMap :: Brick.AttrMap
 attributeMap =

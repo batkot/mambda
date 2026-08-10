@@ -5,6 +5,12 @@ module Mambda.Game (
     render,
     Render (..),
     Glyph (..),
+    SnakeDirection,
+    up,
+    down,
+    left,
+    right,
+    control,
 ) where
 
 import Prelude hiding (init)
@@ -51,6 +57,23 @@ newtype Lifetime = Lifetime Ticks
     deriving stock (Show)
     deriving anyclass (Aztecs.Component m)
 
+newtype SnakeDirection = SnakeDirection Space
+
+up :: SnakeDirection
+up = SnakeDirection $ V2 (-1) 0
+
+down :: SnakeDirection
+down = SnakeDirection $ V2 1 0
+
+left :: SnakeDirection
+left = SnakeDirection $ V2 0 (-1)
+
+right :: SnakeDirection
+right = SnakeDirection $ V2 0 1
+
+isDead :: Lifetime -> Bool
+isDead (Lifetime x) = x <= 0
+
 snakeHead :: (Monad m) => Aztecs.BundleT m
 snakeHead =
     Aztecs.bundle (SnakeHead 3)
@@ -90,12 +113,17 @@ snakeGhostSystem = do
 
 lifetimeSystem :: (Monad m) => Aztecs.Access m ()
 lifetimeSystem = do
-    void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\(Lifetime x) -> Lifetime $ x - 1)
-    dead <- Aztecs.system $ Aztecs.runQuery $ Aztecs.entity <* Aztecs.queryFilter (\(Lifetime x) -> x == 0) Aztecs.query
-    Vector.forM_ dead $ \entityId -> Aztecs.despawn entityId
+    dead <- fmap (Vector.filter (isDead . snd)) $ Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.entity <*> Aztecs.queryMap (\(Lifetime x) -> Lifetime $ x - 1)
+    Vector.forM_ dead $ \(entityId, _) -> Aztecs.despawn entityId
 
 step :: (Monad m) => State m -> m (State m)
 step (State world) = State . snd <$> Aztecs.runAccess gameStep world
+
+control :: (Monad m) => SnakeDirection -> State m -> m (State m)
+control (SnakeDirection dir) (State world) = State . snd <$> Aztecs.runAccess control' world
+  where
+    control' =
+        Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.queryMap (\_ -> Velocity dir)
 
 render :: forall m. (Monad m) => State m -> m Render
 render (State world) = fst <$> Aztecs.runAccess doRender world
@@ -103,10 +131,7 @@ render (State world) = fst <$> Aztecs.runAccess doRender world
 doRender :: forall m. (Monad m) => Aztecs.Access m Render
 doRender = do
     World (V2 width height) <- fmap Vector.last $ Aztecs.system $ Aztecs.runQuery $ Aztecs.query @m @World
-
-    let foo :: Position -> Renderable -> (Position, Renderable)
-        foo = (,)
-    positions <- Aztecs.system $ Aztecs.runQuery $ foo <$> Aztecs.query <*> Aztecs.query
+    positions <- Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.query <*> Aztecs.query
     let emptyGrid = Vector.replicate (fromInteger width) $ Vector.replicate (fromInteger height) Empty
         fullGrid = Vector.foldr writeElem emptyGrid positions
     pure $ Render fullGrid
