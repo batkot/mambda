@@ -57,6 +57,14 @@ newtype Renderable = Renderable Glyph
 newtype Collidable m = Collidable (Collision m)
     deriving anyclass (Aztecs.Component m)
 
+newtype Grow = Grow Integer
+    deriving stock (Show)
+
+instance (Monad m) => Aztecs.Component m Grow where
+    componentOnInsert _ (Grow size) = do
+        void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\(SnakeHead x) -> SnakeHead $ x + fromInteger size)
+        void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\(Lifetime x) -> Lifetime $ x + size)
+
 data Collision m = forall a. (Aztecs.Component m a) => Collision a
 
 type Ticks = Integer
@@ -98,6 +106,7 @@ snakeSegment pos lifetime =
 sampleWorld :: forall m. (Monad m, Typeable m) => Aztecs.Access m ()
 sampleWorld = do
     void $ Aztecs.spawn snakeHead
+    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 1 5)) <> Aztecs.bundle (Collidable $ Collision @m (Grow 2)) <> Aztecs.bundle (Renderable Wall)
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable $ Collision @m (Position (V2 2 2))) <> Aztecs.bundle (Renderable Wall)
     void $ Aztecs.spawn $ Aztecs.bundle (World (V2 20 20))
 
