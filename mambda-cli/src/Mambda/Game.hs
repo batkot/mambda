@@ -1,3 +1,5 @@
+{-# LANGUAGE ApplicativeDo #-}
+
 module Mambda.Game (
     State,
     init,
@@ -18,6 +20,7 @@ import Prelude hiding (init)
 import Aztecs qualified
 import Aztecs.ECS.World qualified as World
 import Data.Functor (void)
+import Data.Typeable (Typeable)
 import Data.Vector qualified as Vector
 import Data.Word (Word8)
 import Linear
@@ -40,7 +43,7 @@ newtype SnakeHead = SnakeHead {length :: Word8}
     deriving anyclass (Aztecs.Component m)
 
 newtype Position = Position Space
-    deriving stock (Show)
+    deriving stock (Show, Eq)
     deriving anyclass (Aztecs.Component m)
 
 newtype Velocity = Velocity Space
@@ -50,6 +53,11 @@ newtype Velocity = Velocity Space
 newtype Renderable = Renderable Glyph
     deriving stock (Show)
     deriving anyclass (Aztecs.Component m)
+
+newtype Collidable m = Collidable (Collision m)
+    deriving anyclass (Aztecs.Component m)
+
+data Collision m = forall a. (Aztecs.Component m a) => Collision a
 
 type Ticks = Integer
 
@@ -78,7 +86,7 @@ snakeHead :: (Monad m) => Aztecs.BundleT m
 snakeHead =
     Aztecs.bundle (SnakeHead 3)
         <> Aztecs.bundle (Position (V2 1 1))
-        <> Aztecs.bundle (Velocity (V2 1 0))
+        <> Aztecs.bundle (Velocity (V2 0 0))
         <> Aztecs.bundle (Renderable Snake)
 
 snakeSegment :: (Monad m) => Space -> Ticks -> Aztecs.BundleT m
@@ -87,18 +95,20 @@ snakeSegment pos lifetime =
         <> Aztecs.bundle (Renderable SnakeSegment)
         <> Aztecs.bundle (Lifetime lifetime)
 
-sampleWorld :: (Monad m) => Aztecs.Access m ()
+sampleWorld :: forall m. (Monad m, Typeable m) => Aztecs.Access m ()
 sampleWorld = do
     void $ Aztecs.spawn snakeHead
+    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable $ Collision @m (Position (V2 2 2))) <> Aztecs.bundle (Renderable Wall)
     void $ Aztecs.spawn $ Aztecs.bundle (World (V2 20 20))
 
-init :: (Monad m) => m (State m)
+init :: (Monad m, Typeable m) => m (State m)
 init = State . snd <$> Aztecs.runAccess sampleWorld World.empty
 
-gameStep :: (Monad m) => Aztecs.Access m ()
+gameStep :: (Monad m, Typeable m) => Aztecs.Access m ()
 gameStep = do
     snakeGhostSystem
     moveSystem
+    collisionSystem
     lifetimeSystem
 
 moveSystem :: (Monad m) => Aztecs.Access m ()
@@ -116,7 +126,19 @@ lifetimeSystem = do
     dead <- fmap (Vector.filter (isDead . snd)) $ Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.entity <*> Aztecs.queryMap (\(Lifetime x) -> Lifetime $ x - 1)
     Vector.forM_ dead $ \(entityId, _) -> Aztecs.despawn entityId
 
-step :: (Monad m) => State m -> m (State m)
+collisionSystem :: forall m. (Monad m, Typeable m) => Aztecs.Access m ()
+collisionSystem = do
+    snakes <- Aztecs.system $ Aztecs.runQueryFiltered ((,) <$> Aztecs.entity <*> Aztecs.query @_ @Position) $ Aztecs.with @m @SnakeHead
+    Vector.forM_ snakes $ \(snakeEntityId, position) -> do
+        collisions <- Aztecs.system $ Aztecs.runQuery (findCollisions position)
+        Vector.forM_ collisions $ \(Collidable (Collision collision)) ->
+            Aztecs.insert snakeEntityId $ Aztecs.bundle collision
+  where
+    findCollisions :: Position -> Aztecs.Query m (Collidable m)
+    findCollisions pos =
+        Aztecs.query @m @(Collidable m) <* Aztecs.queryFilter (pos ==) (Aztecs.query @m @Position)
+
+step :: (Monad m, Typeable m) => State m -> m (State m)
 step (State world) = State . snd <$> Aztecs.runAccess gameStep world
 
 control :: (Monad m) => SnakeDirection -> State m -> m (State m)

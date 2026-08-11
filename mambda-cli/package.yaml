@@ -13,6 +13,7 @@ default-extensions:
 - NoImplicitPrelude
 - OverloadedStrings
 - DeriveAnyClass
+- GADTs
 
 extra-source-files:
 - README.md
