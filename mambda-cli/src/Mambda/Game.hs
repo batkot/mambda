@@ -54,16 +54,33 @@ newtype Renderable = Renderable Glyph
     deriving stock (Show)
     deriving anyclass (Aztecs.Component m)
 
-newtype Collidable m = Collidable (Collision m)
+newtype Collidable m = Collidable (Collision m, Collision m)
     deriving anyclass (Aztecs.Component m)
 
-newtype Grow = Grow Integer
+newtype Grow = Grow (Integer, Bool)
     deriving stock (Show)
 
+data NoOp = NoOp
+    deriving stock (Show)
+    deriving anyclass (Aztecs.Component m)
+
+data Dead = Dead
+    deriving stock (Show)
+
+instance (Monad m) => Aztecs.Component m Dead where
+    componentOnInsert entity Dead = Aztecs.despawn entity
+
 instance (Monad m) => Aztecs.Component m Grow where
-    componentOnInsert _ (Grow size) = do
+    componentOnInsert _ (Grow (_, True)) = pure ()
+    componentOnInsert entity (Grow (size, False)) = do
         void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\(SnakeHead x) -> SnakeHead $ x + fromInteger size)
         void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\(Lifetime x) -> Lifetime $ x + size)
+        Aztecs.insert entity $ Aztecs.bundle (Grow (size, True))
+    componentOnChange _ _ (Grow (_, True)) = pure ()
+    componentOnChange entity _ (Grow (size, False)) = do
+        void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\(SnakeHead x) -> SnakeHead $ x + fromInteger size)
+        void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\(Lifetime x) -> Lifetime $ x + size)
+        Aztecs.insert entity $ Aztecs.bundle (Grow (size, True))
 
 data Collision m = forall a. (Aztecs.Component m a) => Collision a
 
@@ -106,8 +123,8 @@ snakeSegment pos lifetime =
 sampleWorld :: forall m. (Monad m, Typeable m) => Aztecs.Access m ()
 sampleWorld = do
     void $ Aztecs.spawn snakeHead
-    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 1 5)) <> Aztecs.bundle (Collidable $ Collision @m (Grow 2)) <> Aztecs.bundle (Renderable Wall)
-    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable $ Collision @m (Position (V2 2 2))) <> Aztecs.bundle (Renderable Wall)
+    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 1 5)) <> Aztecs.bundle (Collidable $ (Collision @m (Grow (2, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable Wall)
+    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable $ (Collision @m (Position (V2 2 2)), Collision @m NoOp)) <> Aztecs.bundle (Renderable Wall)
     void $ Aztecs.spawn $ Aztecs.bundle (World (V2 20 20))
 
 init :: (Monad m, Typeable m) => m (State m)
@@ -140,12 +157,12 @@ collisionSystem = do
     snakes <- Aztecs.system $ Aztecs.runQueryFiltered ((,) <$> Aztecs.entity <*> Aztecs.query @_ @Position) $ Aztecs.with @m @SnakeHead
     Vector.forM_ snakes $ \(snakeEntityId, position) -> do
         collisions <- Aztecs.system $ Aztecs.runQuery (findCollisions position)
-        Vector.forM_ collisions $ \(Collidable (Collision collision)) ->
+        Vector.forM_ collisions $ \(entityId, Collidable (Collision collision, Collision onHost)) -> do
             Aztecs.insert snakeEntityId $ Aztecs.bundle collision
+            Aztecs.insert entityId $ Aztecs.bundle onHost
   where
-    findCollisions :: Position -> Aztecs.Query m (Collidable m)
-    findCollisions pos =
-        Aztecs.query @m @(Collidable m) <* Aztecs.queryFilter (pos ==) (Aztecs.query @m @Position)
+    findCollisions :: Position -> Aztecs.Query m (Aztecs.EntityID, Collidable m)
+    findCollisions pos = fmap fst $ Aztecs.queryFilter ((==) pos . snd) $ (,) <$> ((,) <$> Aztecs.entity <*> Aztecs.query @m @(Collidable m)) <*> Aztecs.query @m @Position
 
 step :: (Monad m, Typeable m) => State m -> m (State m)
 step (State world) = State . snd <$> Aztecs.runAccess gameStep world
