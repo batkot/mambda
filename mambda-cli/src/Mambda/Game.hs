@@ -6,6 +6,7 @@ module Mambda.Game (
     init,
     step,
     render,
+    laser,
     Render (..),
     Glyph (..),
     SnakeDirection,
@@ -22,7 +23,6 @@ import Aztecs qualified
 import Aztecs.ECS.World qualified as World
 import Control.Monad
 import Data.Bifunctor
-import Data.Foldable
 import Data.Typeable (Typeable)
 import Data.Vector qualified as Vector
 import Data.Word (Word8)
@@ -39,6 +39,8 @@ data Glyph
     | Wall
     | Portal
     | Apple
+    | Poison
+    | Laser
     deriving stock (Show)
 
 type Space = V2 Integer
@@ -60,6 +62,10 @@ newtype Velocity = Velocity Space
     deriving anyclass (Aztecs.Component m)
 
 newtype Renderable = Renderable Glyph
+    deriving stock (Show)
+    deriving anyclass (Aztecs.Component m)
+
+newtype Laser = LaserBeam ()
     deriving stock (Show)
     deriving anyclass (Aztecs.Component m)
 
@@ -142,8 +148,9 @@ sampleWorld :: forall m. (Monad m, Typeable m) => WorldSettings -> Aztecs.Access
 sampleWorld WorldSettings{width, height} = do
     void $ Aztecs.spawn snakeHead
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 1 5)) <> Aztecs.bundle (Collidable (Collision @m (Grow (2, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable Apple)
-    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 5 2)) <> Aztecs.bundle (Collidable (Collision @m (Grow (2, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable Apple)
+    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 15 15)) <> Aztecs.bundle (Collidable (Collision @m (Grow (2, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable Apple)
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable (Collision @m (Position (V2 2 2)), Collision @m NoOp)) <> Aztecs.bundle (Renderable Portal)
+    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 19)) <> Aztecs.bundle (Collidable (Collision @m (Grow (-5, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable Poison)
     void $ Aztecs.spawn $ Aztecs.bundle (World (V2 (toInteger height) (toInteger width)))
     forM_ walls $ \(x, y) -> wall $ V2 x y
     forM_ borders $ \(h, w) ->
@@ -178,6 +185,7 @@ gameStep = do
     snakeGhostSystem
     moveSystem
     collisionSystem
+    laserSystem
     lifetimeSystem
     endGameSystem
 
@@ -204,9 +212,17 @@ collisionSystem = do
         Vector.forM_ collisions $ \(entityId, Collidable (Collision collision, Collision onHost)) -> do
             Aztecs.insert snakeEntityId $ Aztecs.bundle collision
             Aztecs.insert entityId $ Aztecs.bundle onHost
-  where
-    findCollisions :: Position -> Aztecs.Query m (Aztecs.EntityID, Collidable m)
-    findCollisions pos = fmap fst $ Aztecs.queryFilter ((==) pos . snd) $ (,) <$> ((,) <$> Aztecs.entity <*> Aztecs.query @m @(Collidable m)) <*> Aztecs.query @m @Position
+
+findCollisions :: forall m. (Monad m, Typeable m) => Position -> Aztecs.Query m (Aztecs.EntityID, Collidable m)
+findCollisions pos = fmap fst $ Aztecs.queryFilter ((==) pos . snd) $ (,) <$> ((,) <$> Aztecs.entity <*> Aztecs.query @m @(Collidable m)) <*> Aztecs.query @m @Position
+
+laserSystem :: forall m. (Monad m, Typeable m) => Aztecs.Access m ()
+laserSystem = do
+    lasers <- Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.query @_ @Position <*> Aztecs.query @_ @Laser
+    forM_ lasers $ \(laserPos, _) -> do
+        collisions <- Aztecs.system $ Aztecs.runQuery (findCollisions laserPos)
+        Vector.forM_ collisions $ \(entityId, _) ->
+            Aztecs.insert entityId $ Aztecs.bundle $ Lifetime 0
 
 endGameSystem :: (Monad m) => Aztecs.Access m Bool
 endGameSystem = fmap Vector.null $ Aztecs.system $ Aztecs.runQuery $ Aztecs.query @_ @SnakeHead
@@ -220,12 +236,25 @@ control (SnakeDirection dir) (State world) = State . snd <$> Aztecs.runAccess co
     control' =
         Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.queryMap (\_ -> Velocity dir)
 
+laser :: (Monad m) => State m -> m (State m)
+laser (State w) = State . snd <$> Aztecs.runAccess doLaser w
+  where
+    doLaser = do
+        (World (V2 h w)) <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
+        (_, Position (V2 px py), Velocity (V2 vx vy)) <- Aztecs.system $ Aztecs.runQuerySingle $ (,,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.query @_ @Position <*> Aztecs.query @_ @Velocity
+        forM_ (Vector.drop 1 $ Vector.generate 6 (\x -> V2 (min (h - 1) (px + toInteger x * vx)) (min (w - 1) (py + toInteger x * vy)))) $ \laserPos ->
+            Aztecs.spawn_ $
+                Aztecs.bundle (Position laserPos)
+                    <> Aztecs.bundle (LaserBeam ())
+                    <> Aztecs.bundle (Renderable Laser)
+                    <> Aztecs.bundle (Lifetime 1)
+
 render :: forall m. (Monad m) => State m -> m Render
 render (State world) = fst <$> Aztecs.runAccess doRender world
 
 doRender :: forall m. (Monad m) => Aztecs.Access m Render
 doRender = do
-    World (V2 width height) <- fmap Vector.last $ Aztecs.system $ Aztecs.runQuery $ Aztecs.query @m @World
+    World (V2 width height) <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.query @m @World
     positions <- Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.query <*> Aztecs.query
     let emptyGrid = Vector.replicate (fromInteger width) $ Vector.replicate (fromInteger height) Empty
         fullGrid = Vector.foldr writeElem emptyGrid positions

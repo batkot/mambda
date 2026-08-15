@@ -30,6 +30,8 @@ renderGlyph Game.SnakeSegment = Brick.withAttr snakeSegmentAttr $ Brick.str "█
 renderGlyph Game.Wall = Brick.withAttr wallAttr $ Brick.str "░░"
 renderGlyph Game.Apple = Brick.withAttr appleAttr $ Brick.str "██"
 renderGlyph Game.Portal = Brick.withAttr portalAttr $ Brick.str "▌▐"
+renderGlyph Game.Poison = Brick.withAttr poisonAttr $ Brick.str "██"
+renderGlyph Game.Laser = Brick.withAttr laserAttr $ Brick.str "░░"
 
 initState :: State
 initState = State (runIdentity $ Game.init $ Game.WorldSettings 20 20) False
@@ -46,6 +48,8 @@ handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KRight [])) =
     Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control Game.right g}
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) =
     Brick.modify $ \s@(State _ r) -> if r then initState else s
+handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar ' ') [])) =
+    Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.laser g}
 handleEvent _ = pure ()
 
 render :: State -> Brick.Widget n
@@ -69,6 +73,8 @@ attributeMap =
         , (wallAttr, Vty.brightBlack `Brick.on` Vty.black)
         , (appleAttr, Vty.brightRed `Brick.on` Vty.brightRed)
         , (portalAttr, Vty.brightBlue `Brick.on` Vty.black)
+        , (poisonAttr, Vty.brightMagenta `Brick.on` Vty.brightMagenta)
+        , (laserAttr, Vty.brightRed `Brick.on` Vty.brightRed)
         ]
 
 snakeAttr :: Brick.AttrName
@@ -88,3 +94,9 @@ appleAttr = Brick.attrName "apple"
 
 portalAttr :: Brick.AttrName
 portalAttr = Brick.attrName "portal"
+
+poisonAttr :: Brick.AttrName
+poisonAttr = Brick.attrName "poison"
+
+laserAttr :: Brick.AttrName
+laserAttr = Brick.attrName "laser"
