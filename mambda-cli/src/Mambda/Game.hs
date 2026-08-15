@@ -20,8 +20,9 @@ import Prelude hiding (init)
 
 import Aztecs qualified
 import Aztecs.ECS.World qualified as World
+import Control.Monad
+import Data.Bifunctor
 import Data.Foldable
-import Data.Functor (void)
 import Data.Typeable (Typeable)
 import Data.Vector qualified as Vector
 import Data.Word (Word8)
@@ -127,10 +128,11 @@ snakeHead =
         <> Aztecs.bundle (Velocity (V2 0 0))
         <> Aztecs.bundle (Renderable Snake)
 
-snakeSegment :: (Monad m) => Space -> Ticks -> Aztecs.BundleT m
+snakeSegment :: forall m. (Monad m, Typeable m) => Space -> Ticks -> Aztecs.BundleT m
 snakeSegment pos lifetime =
     Aztecs.bundle (Position pos)
         <> Aztecs.bundle (Renderable SnakeSegment)
+        <> Aztecs.bundle (Collidable (Collision @m Dead, Collision @m NoOp))
         <> Aztecs.bundle (Lifetime lifetime)
 
 wall :: forall m. (Monad m, Typeable m) => Space -> Aztecs.Access m ()
@@ -171,22 +173,23 @@ sampleWorld WorldSettings{width, height} = do
 init :: (Monad m, Typeable m) => WorldSettings -> m (State m)
 init worldSettings = State . snd <$> Aztecs.runAccess (sampleWorld worldSettings) World.empty
 
-gameStep :: (Monad m, Typeable m) => Aztecs.Access m ()
+gameStep :: (Monad m, Typeable m) => Aztecs.Access m Bool
 gameStep = do
     snakeGhostSystem
     moveSystem
     collisionSystem
     lifetimeSystem
+    endGameSystem
 
 moveSystem :: (Monad m) => Aztecs.Access m ()
 moveSystem = void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMapWith move Aztecs.query
   where
     move (Velocity v) (Position pos) = Position $ pos + v
 
-snakeGhostSystem :: (Monad m) => Aztecs.Access m ()
+snakeGhostSystem :: (Monad m, Typeable m) => Aztecs.Access m ()
 snakeGhostSystem = do
-    snakes <- Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.query <*> Aztecs.query
-    Vector.forM_ snakes $ \(SnakeHead l, Position pos) -> Aztecs.spawn_ $ snakeSegment pos $ toInteger l
+    snakes <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(_, _, Velocity v) -> v /= V2 0 0) $ (,,) <$> Aztecs.query <*> Aztecs.query <*> Aztecs.query
+    Vector.forM_ snakes $ \(SnakeHead l, Position pos, _) -> Aztecs.spawn_ $ snakeSegment pos $ toInteger l
 
 lifetimeSystem :: (Monad m) => Aztecs.Access m ()
 lifetimeSystem = do
@@ -205,8 +208,11 @@ collisionSystem = do
     findCollisions :: Position -> Aztecs.Query m (Aztecs.EntityID, Collidable m)
     findCollisions pos = fmap fst $ Aztecs.queryFilter ((==) pos . snd) $ (,) <$> ((,) <$> Aztecs.entity <*> Aztecs.query @m @(Collidable m)) <*> Aztecs.query @m @Position
 
-step :: (Monad m, Typeable m) => State m -> m (State m)
-step (State world) = State . snd <$> Aztecs.runAccess gameStep world
+endGameSystem :: (Monad m) => Aztecs.Access m Bool
+endGameSystem = fmap Vector.null $ Aztecs.system $ Aztecs.runQuery $ Aztecs.query @_ @SnakeHead
+
+step :: (Monad m, Typeable m) => State m -> m (Bool, State m)
+step (State world) = second State <$> Aztecs.runAccess gameStep world
 
 control :: (Monad m) => SnakeDirection -> State m -> m (State m)
 control (SnakeDirection dir) (State world) = State . snd <$> Aztecs.runAccess control' world
