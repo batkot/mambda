@@ -1,6 +1,7 @@
 {-# LANGUAGE ApplicativeDo #-}
 
 module Mambda.Game (
+    WorldSettings (..),
     State,
     init,
     step,
@@ -19,6 +20,7 @@ import Prelude hiding (init)
 
 import Aztecs qualified
 import Aztecs.ECS.World qualified as World
+import Data.Foldable
 import Data.Functor (void)
 import Data.Typeable (Typeable)
 import Data.Vector qualified as Vector
@@ -29,7 +31,13 @@ newtype State m = State {world :: Aztecs.World m}
 
 newtype Render = Render (Vector.Vector (Vector.Vector Glyph))
 
-data Glyph = Snake | SnakeSegment | Empty | Wall
+data Glyph
+    = Snake
+    | SnakeSegment
+    | Empty
+    | Wall
+    | Portal
+    | Apple
     deriving stock (Show)
 
 type Space = V2 Integer
@@ -107,6 +115,11 @@ right = SnakeDirection $ V2 0 1
 isDead :: Lifetime -> Bool
 isDead (Lifetime x) = x <= 0
 
+data WorldSettings = WorldSettings
+    { width :: Word8
+    , height :: Word8
+    }
+
 snakeHead :: (Monad m) => Aztecs.BundleT m
 snakeHead =
     Aztecs.bundle (SnakeHead 3)
@@ -120,15 +133,34 @@ snakeSegment pos lifetime =
         <> Aztecs.bundle (Renderable SnakeSegment)
         <> Aztecs.bundle (Lifetime lifetime)
 
-sampleWorld :: forall m. (Monad m, Typeable m) => Aztecs.Access m ()
-sampleWorld = do
+sampleWorld :: forall m. (Monad m, Typeable m) => WorldSettings -> Aztecs.Access m ()
+sampleWorld WorldSettings{width, height} = do
     void $ Aztecs.spawn snakeHead
-    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 1 5)) <> Aztecs.bundle (Collidable $ (Collision @m (Grow (2, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable Wall)
-    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable $ (Collision @m (Position (V2 2 2)), Collision @m NoOp)) <> Aztecs.bundle (Renderable Wall)
-    void $ Aztecs.spawn $ Aztecs.bundle (World (V2 20 20))
+    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 1 5)) <> Aztecs.bundle (Collidable (Collision @m (Grow (2, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable Apple)
+    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 5 2)) <> Aztecs.bundle (Collidable (Collision @m (Grow (2, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable Apple)
+    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable (Collision @m (Position (V2 2 2)), Collision @m NoOp)) <> Aztecs.bundle (Renderable Portal)
+    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 19 10)) <> Aztecs.bundle (Collidable (Collision @m Dead, Collision @m NoOp)) <> Aztecs.bundle (Renderable Wall)
+    void $ Aztecs.spawn $ Aztecs.bundle (World (V2 (toInteger height) (toInteger width)))
+    forM_ borders $ \(h, w) ->
+        let (exitH, exitW) =
+                case (h, w) of
+                    (-1, w) -> (heightInt - 1, w)
+                    (x, -1) -> (x, widthInt - 1)
+                    (x, y) | x == heightInt -> (0, y)
+                    (x, _) -> (x, 0)
+         in void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 h w)) <> Aztecs.bundle (Collidable (Collision @m (Position (V2 exitH exitW)), Collision @m NoOp))
+  where
+    widthInt = toInteger width
+    heightInt = toInteger height
+    borders =
+        [ (h, w)
+        | h <- [-1, 0 .. heightInt]
+        , w <- [-1, 0 .. widthInt]
+        , or [h == -1, h == heightInt, w == -1, w == widthInt]
+        ]
 
-init :: (Monad m, Typeable m) => m (State m)
-init = State . snd <$> Aztecs.runAccess sampleWorld World.empty
+init :: (Monad m, Typeable m) => WorldSettings -> m (State m)
+init worldSettings = State . snd <$> Aztecs.runAccess (sampleWorld worldSettings) World.empty
 
 gameStep :: (Monad m, Typeable m) => Aztecs.Access m ()
 gameStep = do
@@ -140,7 +172,7 @@ gameStep = do
 moveSystem :: (Monad m) => Aztecs.Access m ()
 moveSystem = void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMapWith move Aztecs.query
   where
-    move (Velocity v) (Position pos) = Position $ min (pos + v) (V2 19 19)
+    move (Velocity v) (Position pos) = Position $ pos + v
 
 snakeGhostSystem :: (Monad m) => Aztecs.Access m ()
 snakeGhostSystem = do

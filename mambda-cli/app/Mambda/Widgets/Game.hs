@@ -24,10 +24,12 @@ renderGlyph :: Game.Glyph -> Brick.Widget n
 renderGlyph Game.Empty = Brick.withAttr emptyAttr $ Brick.str "██"
 renderGlyph Game.Snake = Brick.withAttr snakeAttr $ Brick.str "██"
 renderGlyph Game.SnakeSegment = Brick.withAttr snakeSegmentAttr $ Brick.str "██"
-renderGlyph Game.Wall = Brick.withAttr wallAttr $ Brick.str "██"
+renderGlyph Game.Wall = Brick.withAttr wallAttr $ Brick.str "░░"
+renderGlyph Game.Apple = Brick.withAttr appleAttr $ Brick.str "██"
+renderGlyph Game.Portal = Brick.withAttr portalAttr $ Brick.str "▌▐"
 
 initState :: State
-initState = State $ runIdentity Game.init
+initState = State $ runIdentity $ Game.init $ Game.WorldSettings 20 20
 
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n State ()
 handleEvent (Brick.AppEvent _) = Brick.modify $ \(State g) -> State $ runIdentity $ Game.step g
@@ -58,7 +60,9 @@ attributeMap =
         [ (snakeAttr, Vty.brightGreen `Brick.on` Vty.brightGreen)
         , (snakeSegmentAttr, Vty.green `Brick.on` Vty.green)
         , (emptyAttr, Vty.black `Brick.on` Vty.black)
-        , (wallAttr, Vty.brightBlack `Brick.on` Vty.brightBlack)
+        , (wallAttr, Vty.brightBlack `Brick.on` Vty.black)
+        , (appleAttr, Vty.brightRed `Brick.on` Vty.brightRed)
+        , (portalAttr, Vty.brightBlue `Brick.on` Vty.black)
         ]
 
 snakeAttr :: Brick.AttrName
@@ -72,3 +76,9 @@ emptyAttr = Brick.attrName "empty"
 
 wallAttr :: Brick.AttrName
 wallAttr = Brick.attrName "wall"
+
+appleAttr :: Brick.AttrName
+appleAttr = Brick.attrName "apple"
+
+portalAttr :: Brick.AttrName
+portalAttr = Brick.attrName "portal"

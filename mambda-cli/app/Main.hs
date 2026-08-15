@@ -42,7 +42,7 @@ main = do
     tickChan <- BChan.newBChan 10
     void $ Concurrent.forkIO $ forever $ do
         BChan.writeBChan tickChan Tick
-        Concurrent.threadDelay 1_000_000
+        Concurrent.threadDelay 250_000
     void $ Brick.customMainWithDefaultVty (Just tickChan) app $ Menu $ MainMenu.initState mainMenu
   where
     app :: Brick.App MambdaCliState MambdaEvent MambdaCliResource
