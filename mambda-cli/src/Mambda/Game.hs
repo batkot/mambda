@@ -185,7 +185,7 @@ gameStep = do
     snakeGhostSystem
     moveSystem
     collisionSystem
-    laserSystem
+    -- laserSystem
     lifetimeSystem
     endGameSystem
 
@@ -236,18 +236,22 @@ control (SnakeDirection dir) (State world) = State . snd <$> Aztecs.runAccess co
     control' =
         Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.queryMap (\_ -> Velocity dir)
 
-laser :: (Monad m) => State m -> m (State m)
+laser :: (Monad m, Typeable m) => State m -> m (State m)
 laser (State w) = State . snd <$> Aztecs.runAccess doLaser w
   where
     doLaser = do
         (World (V2 h w)) <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
-        (_, Position (V2 px py), Velocity (V2 vx vy)) <- Aztecs.system $ Aztecs.runQuerySingle $ (,,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.query @_ @Position <*> Aztecs.query @_ @Velocity
-        forM_ (Vector.drop 1 $ Vector.generate 6 (\x -> V2 (min (h - 1) (px + toInteger x * vx)) (min (w - 1) (py + toInteger x * vy)))) $ \laserPos ->
-            Aztecs.spawn_ $
-                Aztecs.bundle (Position laserPos)
-                    <> Aztecs.bundle (LaserBeam ())
-                    <> Aztecs.bundle (Renderable Laser)
-                    <> Aztecs.bundle (Lifetime 1)
+        snakes <- Aztecs.system $ Aztecs.runQuery $ (,,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.query @_ @Position <*> Aztecs.query @_ @Velocity
+        forM_ snakes $ \(_, Position (V2 px py), Velocity (V2 vx vy)) ->
+            forM_ (Vector.generate 20 (\x -> V2 (max 0 (min (h - 1) (px + toInteger x * vx))) (max 0 (min (w - 1) (py + toInteger x * vy))))) $ \laserPos -> do
+                Aztecs.spawn_ $
+                    Aztecs.bundle (Position laserPos)
+                        <> Aztecs.bundle (LaserBeam ())
+                        <> Aztecs.bundle (Renderable Laser)
+                        <> Aztecs.bundle (Lifetime 1)
+                collisions <- Aztecs.system $ Aztecs.runQuery (findCollisions $ Position laserPos)
+                Vector.forM_ collisions $ \(entityId, _) ->
+                    Aztecs.insert entityId $ Aztecs.bundle $ Lifetime 0
 
 render :: forall m. (Monad m) => State m -> m Render
 render (State world) = fst <$> Aztecs.runAccess doRender world
