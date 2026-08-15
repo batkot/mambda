@@ -133,14 +133,17 @@ snakeSegment pos lifetime =
         <> Aztecs.bundle (Renderable SnakeSegment)
         <> Aztecs.bundle (Lifetime lifetime)
 
+wall :: forall m. (Monad m, Typeable m) => Space -> Aztecs.Access m ()
+wall pos = void $ Aztecs.spawn $ Aztecs.bundle (Position pos) <> Aztecs.bundle (Collidable (Collision @m Dead, Collision @m NoOp)) <> Aztecs.bundle (Renderable Wall)
+
 sampleWorld :: forall m. (Monad m, Typeable m) => WorldSettings -> Aztecs.Access m ()
 sampleWorld WorldSettings{width, height} = do
     void $ Aztecs.spawn snakeHead
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 1 5)) <> Aztecs.bundle (Collidable (Collision @m (Grow (2, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable Apple)
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 5 2)) <> Aztecs.bundle (Collidable (Collision @m (Grow (2, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable Apple)
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable (Collision @m (Position (V2 2 2)), Collision @m NoOp)) <> Aztecs.bundle (Renderable Portal)
-    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 19 10)) <> Aztecs.bundle (Collidable (Collision @m Dead, Collision @m NoOp)) <> Aztecs.bundle (Renderable Wall)
     void $ Aztecs.spawn $ Aztecs.bundle (World (V2 (toInteger height) (toInteger width)))
+    forM_ walls $ \(x, y) -> wall $ V2 x y
     forM_ borders $ \(h, w) ->
         let (exitH, exitW) =
                 case (h, w) of
@@ -152,6 +155,12 @@ sampleWorld WorldSettings{width, height} = do
   where
     widthInt = toInteger width
     heightInt = toInteger height
+    walls =
+        [ (h + x, w)
+        | h <- [4, 12]
+        , w <- [6, 14]
+        , x <- [0 .. 3]
+        ]
     borders =
         [ (h, w)
         | h <- [-1, 0 .. heightInt]
