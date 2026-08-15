@@ -6,6 +6,7 @@ module Mambda.Widgets.MainMenu (
     render,
     handleEvent,
     MenuItem (..),
+    attributeMap,
 ) where
 
 import Prelude
@@ -46,36 +47,42 @@ current ListZipper{current} = current
 fromNonEmpty :: NonEmpty a -> ListZipper a
 fromNonEmpty (x :| xs) = ListZipper [] x xs
 
-newtype State a = State
-    { menuItems :: ListZipper a
+data State a = State
+    { tick :: Integer
+    , menuItems :: ListZipper a
     }
     deriving stock (Show, Eq, Ord)
 
 initState :: NonEmpty a -> State a
-initState = State . fromNonEmpty
+initState = State 0 . fromNonEmpty
 
-logo :: Brick.Widget n
-logo =
-    Brick.str logoTxt
+logo :: Integer -> Brick.Widget n
+logo offset =
+    Brick.vBox logoLines
   where
-    logoTxt = Text.unpack $ Text.decodeUtf8 $ $(FileEmbed.embedFileRelative "data/logo.txt")
+    attrs = Prelude.drop (fromInteger offset) $ Prelude.cycle $ replicate 3 brightAttr <> replicate 3 greenAttr
+    logoLine attr line = Brick.withAttr attr $ Brick.str $ Text.unpack line
+    logoLines = Prelude.zipWith logoLine attrs $ Text.lines $ Text.decodeUtf8 $ $(FileEmbed.embedFileRelative "data/logo.txt")
 
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n (State a) (Maybe a)
+handleEvent (Brick.AppEvent _) = do
+    Brick.modify $ \(State x y) -> State (x + 1 `mod` 6) y
+    pure Nothing
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) = do
-    Brick.modify $ \(State items) -> State $ next items
+    Brick.modify $ \(State x items) -> State x $ next items
     pure Nothing
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) = do
-    Brick.modify $ \(State items) -> State $ previous items
+    Brick.modify $ \(State x items) -> State x $ previous items
     pure Nothing
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) = do
-    State items <- Brick.get
+    State x items <- Brick.get
     pure $ Just $ current items
 handleEvent _ = pure Nothing
 
 render :: (MenuItem a) => State a -> Brick.Widget n
-render State{menuItems} =
+render State{menuItems, tick} =
     Brick.center $
-        Brick.vCenter (logo <=> menu)
+        Brick.vCenter (logo tick <=> menu)
   where
     ListZipper prev curr next = menuItems
     menu = Brick.vBox $ fmap renderMenuItem (List.reverse prev) <> [renderCurrentItem curr] <> fmap renderMenuItem next
@@ -85,3 +92,17 @@ renderMenuItem menuItem = Brick.str $ Text.unpack $ toMenuItem menuItem
 
 renderCurrentItem :: (MenuItem a) => a -> Brick.Widget n
 renderCurrentItem menuItem = Brick.str $ "> " <> Text.unpack (toMenuItem menuItem)
+
+attributeMap :: Brick.AttrMap
+attributeMap =
+    Brick.attrMap
+        Vty.defAttr
+        [ (brightAttr, Brick.fg Vty.brightGreen)
+        , (greenAttr, Brick.fg Vty.green)
+        ]
+
+brightAttr :: Brick.AttrName
+brightAttr = Brick.attrName "bright"
+
+greenAttr :: Brick.AttrName
+greenAttr = Brick.attrName "green"

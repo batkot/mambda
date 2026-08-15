@@ -185,7 +185,6 @@ gameStep = do
     snakeGhostSystem
     moveSystem
     collisionSystem
-    -- laserSystem
     lifetimeSystem
     endGameSystem
 
@@ -215,14 +214,6 @@ collisionSystem = do
 
 findCollisions :: forall m. (Monad m, Typeable m) => Position -> Aztecs.Query m (Aztecs.EntityID, Collidable m)
 findCollisions pos = fmap fst $ Aztecs.queryFilter ((==) pos . snd) $ (,) <$> ((,) <$> Aztecs.entity <*> Aztecs.query @m @(Collidable m)) <*> Aztecs.query @m @Position
-
-laserSystem :: forall m. (Monad m, Typeable m) => Aztecs.Access m ()
-laserSystem = do
-    lasers <- Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.query @_ @Position <*> Aztecs.query @_ @Laser
-    forM_ lasers $ \(laserPos, _) -> do
-        collisions <- Aztecs.system $ Aztecs.runQuery (findCollisions laserPos)
-        Vector.forM_ collisions $ \(entityId, _) ->
-            Aztecs.insert entityId $ Aztecs.bundle $ Lifetime 0
 
 endGameSystem :: (Monad m) => Aztecs.Access m Bool
 endGameSystem = fmap Vector.null $ Aztecs.system $ Aztecs.runQuery $ Aztecs.query @_ @SnakeHead

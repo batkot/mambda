@@ -52,8 +52,12 @@ main = do
             , appChooseCursor = \_ _ -> Nothing
             , appHandleEvent = handleEvent
             , appStartEvent = pure ()
-            , appAttrMap = const $ Game.attributeMap
+            , appAttrMap = appAttrMap
             }
+
+    appAttrMap = \case
+        Menu _ -> MainMenu.attributeMap
+        Game _ -> Game.attributeMap
     handleEvent :: Brick.BrickEvent MambdaCliResource MambdaEvent -> Brick.EventM MambdaCliResource MambdaCliState ()
     handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'q') [])) = Brick.halt
     handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEsc [])) = Brick.halt

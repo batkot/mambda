@@ -24,7 +24,7 @@ data State = State
     }
 
 renderGlyph :: Game.Glyph -> Brick.Widget n
-renderGlyph Game.Empty = Brick.withAttr emptyAttr $ Brick.str "██"
+renderGlyph Game.Empty = Brick.withAttr emptyAttr $ Brick.str "  "
 renderGlyph Game.Snake = Brick.withAttr snakeAttr $ Brick.str "██"
 renderGlyph Game.SnakeSegment = Brick.withAttr snakeSegmentAttr $ Brick.str "██"
 renderGlyph Game.Wall = Brick.withAttr wallAttr $ Brick.str "░░"
@@ -69,10 +69,10 @@ attributeMap =
         Vty.defAttr
         [ (snakeAttr, Vty.brightGreen `Brick.on` Vty.brightGreen)
         , (snakeSegmentAttr, Vty.green `Brick.on` Vty.green)
-        , (emptyAttr, Vty.black `Brick.on` Vty.black)
+        , (emptyAttr, Vty.defAttr)
         , (wallAttr, Vty.brightBlack `Brick.on` Vty.black)
         , (appleAttr, Vty.brightRed `Brick.on` Vty.brightRed)
-        , (portalAttr, Vty.brightBlue `Brick.on` Vty.black)
+        , (portalAttr, Brick.fg Vty.brightBlue)
         , (poisonAttr, Vty.brightMagenta `Brick.on` Vty.brightMagenta)
         , (laserAttr, Vty.brightRed `Brick.on` Vty.brightRed)
         ]
