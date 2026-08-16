@@ -39,6 +39,7 @@ data Glyph
     | Wall
     | Portal
     | Apple
+    | GoldenApple
     | Poison
     | Laser
     deriving stock (Show)
@@ -149,6 +150,7 @@ sampleWorld WorldSettings{width, height} = do
     void $ Aztecs.spawn snakeHead
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 1 5)) <> Aztecs.bundle (Collidable (Collision @m (Grow (2, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable Apple)
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 15 15)) <> Aztecs.bundle (Collidable (Collision @m (Grow (2, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable Apple)
+    void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 18 2)) <> Aztecs.bundle (Collidable (Collision @m (Grow (5, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable GoldenApple)
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable (Collision @m (Position (V2 2 2)), Collision @m NoOp)) <> Aztecs.bundle (Renderable Portal)
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 19)) <> Aztecs.bundle (Collidable (Collision @m (Grow (-5, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable Poison)
     void $ Aztecs.spawn $ Aztecs.bundle (World (V2 (toInteger height) (toInteger width)))

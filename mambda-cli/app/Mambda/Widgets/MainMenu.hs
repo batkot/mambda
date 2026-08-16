@@ -60,13 +60,13 @@ logo :: Integer -> Brick.Widget n
 logo offset =
     Brick.vBox logoLines
   where
-    attrs = Prelude.drop (fromInteger offset) $ Prelude.cycle $ replicate 3 brightAttr <> replicate 3 greenAttr
+    attrs = Prelude.drop (fromInteger (offset `mod` 6)) $ Prelude.cycle $ replicate 3 brightAttr <> replicate 3 greenAttr
     logoLine attr line = Brick.withAttr attr $ Brick.str $ Text.unpack line
     logoLines = Prelude.zipWith logoLine attrs $ Text.lines $ Text.decodeUtf8 $ $(FileEmbed.embedFileRelative "data/logo.txt")
 
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n (State a) (Maybe a)
 handleEvent (Brick.AppEvent _) = do
-    Brick.modify $ \(State x y) -> State (x + 1 `mod` 6) y
+    Brick.modify $ \(State x y) -> State (x + 1) y
     pure Nothing
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) = do
     Brick.modify $ \(State x items) -> State x $ next items
@@ -82,16 +82,16 @@ handleEvent _ = pure Nothing
 render :: (MenuItem a) => State a -> Brick.Widget n
 render State{menuItems, tick} =
     Brick.center $
-        Brick.vCenter (logo tick <=> menu)
+        Brick.vCenter (logo tick <=> Brick.str " " <=> menu)
   where
     ListZipper prev curr next = menuItems
-    menu = Brick.vBox $ fmap renderMenuItem (List.reverse prev) <> [renderCurrentItem curr] <> fmap renderMenuItem next
+    menu = Brick.vBox $ fmap (renderMenuItem emptyFrame) (List.reverse prev) <> [renderMenuItem selectedFrame curr] <> fmap (renderMenuItem emptyFrame) next
+    selectedFrame = cursorAnimSprites Prelude.!! (fromInteger tick `mod` Prelude.length cursorAnimSprites)
+    emptyFrame = " "
 
-renderMenuItem :: (MenuItem a) => a -> Brick.Widget n
-renderMenuItem menuItem = Brick.str $ Text.unpack $ toMenuItem menuItem
-
-renderCurrentItem :: (MenuItem a) => a -> Brick.Widget n
-renderCurrentItem menuItem = Brick.str $ "> " <> Text.unpack (toMenuItem menuItem)
+renderMenuItem :: (MenuItem a) => Text.Text -> a -> Brick.Widget n
+renderMenuItem selector menuItem =
+    Brick.str . Text.unpack $ selector <> " " <> toMenuItem menuItem
 
 attributeMap :: Brick.AttrMap
 attributeMap =
@@ -106,3 +106,6 @@ brightAttr = Brick.attrName "bright"
 
 greenAttr :: Brick.AttrName
 greenAttr = Brick.attrName "green"
+
+cursorAnimSprites :: [Text.Text]
+cursorAnimSprites = ["⠇", "⡆", "⣄", "⣠", "⢰", "⠸", "⠙", "⠋"]

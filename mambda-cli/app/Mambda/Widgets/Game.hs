@@ -29,9 +29,10 @@ renderGlyph Game.Snake = Brick.withAttr snakeAttr $ Brick.str "██"
 renderGlyph Game.SnakeSegment = Brick.withAttr snakeSegmentAttr $ Brick.str "██"
 renderGlyph Game.Wall = Brick.withAttr wallAttr $ Brick.str "░░"
 renderGlyph Game.Apple = Brick.withAttr appleAttr $ Brick.str "██"
+renderGlyph Game.GoldenApple = Brick.withAttr goldenAppleAttr $ Brick.str "██"
 renderGlyph Game.Portal = Brick.withAttr portalAttr $ Brick.str "▌▐"
 renderGlyph Game.Poison = Brick.withAttr poisonAttr $ Brick.str "██"
-renderGlyph Game.Laser = Brick.withAttr laserAttr $ Brick.str "░░"
+renderGlyph Game.Laser = Brick.withAttr laserAttr $ Brick.str "╪╪"
 
 initState :: State
 initState = State (runIdentity $ Game.init $ Game.WorldSettings 20 20) False
@@ -72,9 +73,10 @@ attributeMap =
         , (emptyAttr, Vty.defAttr)
         , (wallAttr, Vty.brightBlack `Brick.on` Vty.black)
         , (appleAttr, Vty.brightRed `Brick.on` Vty.brightRed)
+        , (goldenAppleAttr, Vty.brightYellow `Brick.on` Vty.brightYellow)
         , (portalAttr, Brick.fg Vty.brightBlue)
         , (poisonAttr, Vty.brightMagenta `Brick.on` Vty.brightMagenta)
-        , (laserAttr, Vty.brightRed `Brick.on` Vty.brightRed)
+        , (laserAttr, Brick.fg Vty.brightRed)
         ]
 
 snakeAttr :: Brick.AttrName
@@ -100,3 +102,6 @@ poisonAttr = Brick.attrName "poison"
 
 laserAttr :: Brick.AttrName
 laserAttr = Brick.attrName "laser"
+
+goldenAppleAttr :: Brick.AttrName
+goldenAppleAttr = Brick.attrName "golden-apple"
