@@ -14,14 +14,20 @@ import Brick qualified
 import Brick.Widgets.Center qualified as Brick
 import Mambda.Game qualified as Game
 
+import Brick ((<+>), (<=>))
 import Brick.Widgets.Border qualified as Brick
 import Brick.Widgets.Table qualified as Table
+import Control.Monad (unless)
+import Data.Bifunctor
 import Data.Vector qualified as Vector
 import Graphics.Vty qualified as Vty
 
+data GameState = Running | Paused | Finished
+    deriving stock (Eq)
+
 data State = State
     { game :: Game.State Identity
-    , finished :: Bool
+    , state :: GameState
     }
 
 renderGlyph :: Game.Glyph -> Brick.Widget n
@@ -36,10 +42,16 @@ renderGlyph Game.Poison = Brick.withAttr poisonAttr $ Brick.str "██"
 renderGlyph Game.Laser = Brick.withAttr laserAttr $ Brick.str "╪╪"
 
 initState :: State
-initState = State (runIdentity $ Game.init $ Game.WorldSettings 20 20) False
+initState = State (runIdentity $ Game.init $ Game.WorldSettings 20 20) Running
+
+boolToState :: Bool -> GameState
+boolToState True = Finished
+boolToState False = Running
 
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n State ()
-handleEvent (Brick.AppEvent _) = Brick.modify $ \(State g _) -> uncurry (flip State) $ runIdentity $ Game.step g
+handleEvent (Brick.AppEvent _) = do
+    paused <- Brick.gets $ \(State{state}) -> state == Paused
+    unless paused $ Brick.modify $ \(State g s) -> uncurry (flip State) $ runIdentity $ first boolToState <$> Game.step g
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) =
     Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control Game.up g}
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) =
@@ -49,20 +61,31 @@ handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KLeft [])) =
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KRight [])) =
     Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control Game.right g}
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) =
-    Brick.modify $ \s@(State _ r) -> if r then initState else s
+    Brick.modify $ \s@(State _ r) -> if r == Finished then initState else s
+handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'p') [])) = do
+    gameState <- Brick.gets $ \(State{state}) -> state
+    case gameState of
+        Finished -> pure ()
+        Paused -> Brick.modify $ \s -> s{state = Running}
+        Running -> Brick.modify $ \s -> s{state = Paused}
 handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar ' ') [])) =
     Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.laser g}
 handleEvent _ = pure ()
 
 render :: State -> Brick.Widget n
-render (State s finished) =
+render (State s status) =
     Brick.center $
         Brick.vCenter $
-            Brick.border $
-                Table.renderTable frameTable
+            Brick.border (Table.renderTable frameTable)
+                <=> Table.renderTable (borderlessTable $ Table.table [[Brick.str "SCORE", statusWidget]])
   where
     Game.Render r = runIdentity $ Game.render s
-    frameTable = Table.columnBorders False $ Table.rowBorders False $ Table.surroundingBorder False $ Table.table worldGrid
+    statusWidget = Brick.str $ case status of
+        Finished -> "GAME OVER"
+        Paused -> "PAUSED"
+        Running -> ""
+    frameTable = borderlessTable $ Table.table worldGrid
+    borderlessTable = Table.columnBorders False . Table.rowBorders False . Table.surroundingBorder False
     worldGrid = Vector.toList $ Vector.toList . fmap renderGlyph <$> r
 
 attributeMap :: Brick.AttrMap
