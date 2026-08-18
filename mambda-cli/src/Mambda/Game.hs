@@ -236,7 +236,7 @@ laser (State w) = State . snd <$> Aztecs.runAccess doLaser w
         (World (V2 h w)) <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
         snakes <- Aztecs.system $ Aztecs.runQuery $ (,,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.query @_ @Position <*> Aztecs.query @_ @Velocity
         forM_ snakes $ \(_, Position (V2 px py), Velocity (V2 vx vy)) ->
-            forM_ (Vector.generate 20 (\x -> V2 (max 0 (min (h - 1) (px + toInteger x * vx))) (max 0 (min (w - 1) (py + toInteger x * vy))))) $ \laserPos -> do
+            forM_ (Vector.generate (fromInteger $ max h w) (\x -> V2 (max 0 (min (h - 1) (px + toInteger x * vx))) (max 0 (min (w - 1) (py + toInteger x * vy))))) $ \laserPos -> do
                 Aztecs.spawn_ $
                     Aztecs.bundle (Position laserPos)
                         <> Aztecs.bundle (LaserBeam ())

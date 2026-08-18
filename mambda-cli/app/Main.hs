@@ -12,10 +12,12 @@ import Data.List.NonEmpty
 import Data.Text qualified as Text
 import Mambda.Widgets.Game qualified as Game
 import Mambda.Widgets.MainMenu qualified as MainMenu
+import Mambda.Widgets.Settings qualified as Settings
 
 data MambdaCliState
     = Menu (MainMenu.State MenuItem)
     | Game Game.State
+    | Settings Settings.State
 
 data MambdaCliResource = MambdaCliResource
     deriving stock (Show, Eq, Ord)
@@ -33,7 +35,7 @@ data MambdaEvent = Tick
 mainMenu :: NonEmpty MenuItem
 mainMenu =
     MenuItem{label = "Start Game", transitionTo = Game Game.initState}
-        :| [ MenuItem{label = "Settings", transitionTo = Game Game.initState}
+        :| [ MenuItem{label = "Settings", transitionTo = Settings Settings.initState}
            , MenuItem{label = "Scoreboard", transitionTo = Game Game.initState}
            , MenuItem{label = "Quit", transitionTo = Game Game.initState}
            ]
@@ -59,6 +61,7 @@ main = do
     appAttrMap = \case
         Menu _ -> MainMenu.attributeMap
         Game _ -> Game.attributeMap
+        Settings _ -> Settings.attributeMap
     handleEvent :: Brick.BrickEvent MambdaCliResource MambdaEvent -> Brick.EventM MambdaCliResource MambdaCliState ()
     handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'q') [])) = Brick.halt
     handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEsc [])) = Brick.halt
@@ -73,7 +76,13 @@ main = do
             Game gameState -> do
                 newGameState <- Brick.nestEventM' gameState (Game.handleEvent ev)
                 Brick.put $ Game newGameState
+            Settings settingsState -> do
+                (newSettingsState, done) <- Brick.nestEventM settingsState (Settings.handleEvent ev)
+                let newState = if done then Menu (MainMenu.initState mainMenu) else Settings newSettingsState
+                Brick.put newState
+
     drawUI :: MambdaCliState -> [Brick.Widget MambdaCliResource]
     drawUI = \case
         Menu menuState -> [MainMenu.render menuState]
         Game gameState -> [Game.render gameState]
+        Settings settingsState -> [Settings.render settingsState]

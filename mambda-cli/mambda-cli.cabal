@@ -49,6 +49,7 @@ executable mambda
   other-modules:
       Mambda.Widgets.Game
       Mambda.Widgets.MainMenu
+      Mambda.Widgets.Settings
       Paths_mambda_cli
   hs-source-dirs:
       app
