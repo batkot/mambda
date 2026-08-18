@@ -10,21 +10,25 @@ module Mambda.Widgets.Settings (
 
 import Prelude
 
-import Brick ((<=>))
 import Brick qualified
 import Brick.Widgets.Center qualified as Brick
 import Brick.Widgets.Table qualified as Table
 import Graphics.Vty qualified as Vty
 
-import Data.FileEmbed as FileEmbed
-import Data.List qualified as List
+import Mambda.Widgets.ListZipper qualified as LZ
+
 import Data.List.NonEmpty
 
 import Data.Text qualified as Text
-import Data.Text.Encoding qualified as Text
+
+data Setting = Setting
+    { label :: Text.Text
+    , value :: Text.Text
+    }
+    deriving stock (Show, Eq, Ord)
 
 newtype State = State
-    { message :: Text.Text
+    { settings :: LZ.ListZipper Setting
     }
     deriving stock (Show, Eq, Ord)
 
@@ -38,32 +42,42 @@ newtype State = State
 -- Pause, Quit
 
 initState :: State
-initState = State "YO"
+initState =
+    State $
+        LZ.fromNonEmpty $
+            Setting{label = "Snake Speed", value = "3"}
+                :| [ Setting{label = "Snake Color", value = "Green"}
+                   , Setting{label = "Controls", value = ""}
+                   , Setting{label = "Up", value = "Arrow Up"}
+                   , Setting{label = "Down", value = "Arrow Down"}
+                   , Setting{label = "Left", value = "Arrow Left"}
+                   , Setting{label = "Right", value = "Arrow Right"}
+                   ]
 
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n State Bool
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) = pure True
+handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) = do
+    Brick.modify $ \(State items) -> State $ LZ.next items
+    pure False
+handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) = do
+    Brick.modify $ \(State items) -> State $ LZ.previous items
+    pure False
 handleEvent _ = pure False
 
 render :: State -> Brick.Widget n
-render State{message} =
+render State{settings} =
     Brick.center $
         Brick.vCenter $
-            Table.renderTable foo
-
-foo :: Table.Table n
-foo =
-    Table.surroundingBorder False $
-        Table.columnBorders False $
-            Table.rowBorders False $
-                Table.table
-                    [ [Brick.str "Snake Speed", Brick.str "3"]
-                    , [Brick.str "Snake Color", Brick.str "Green"]
-                    , [Brick.str "Controls", Brick.str ""]
-                    , [Brick.str "Up", Brick.str "Arrow Up"]
-                    , [Brick.str "Down", Brick.str "Arrow Down"]
-                    , [Brick.str "Left", Brick.str "Arrow Left"]
-                    , [Brick.str "Right", Brick.str "Arrow Right"]
-                    ]
+            Table.renderTable $
+                Table.surroundingBorder False $
+                    Table.columnBorders False $
+                        Table.rowBorders False $
+                            Table.alignRight 2 $
+                                Table.table $
+                                    LZ.renderZipper renderTableRow settings
+  where
+    renderTableRow True Setting{label, value} = [Brick.str ">", Brick.str (Text.unpack label), Brick.str (Text.unpack value)]
+    renderTableRow False Setting{label, value} = [Brick.str " ", Brick.str (Text.unpack label), Brick.str (Text.unpack value)]
 
 attributeMap :: Brick.AttrMap
 attributeMap =

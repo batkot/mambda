@@ -17,35 +17,14 @@ import Brick.Widgets.Center qualified as Brick
 import Graphics.Vty qualified as Vty
 
 import Data.FileEmbed as FileEmbed
-import Data.List qualified as List
 import Data.List.NonEmpty
 
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
+import Mambda.Widgets.ListZipper
 
 class MenuItem a where
     toMenuItem :: a -> Text.Text
-
-data ListZipper a = ListZipper
-    { previous :: ![a]
-    , current :: !a
-    , next :: ![a]
-    }
-    deriving stock (Show, Eq, Ord)
-
-next :: ListZipper a -> ListZipper a
-next x@(ListZipper _ _ []) = x
-next (ListZipper p c (n : ns)) = ListZipper (c : p) n ns
-
-previous :: ListZipper a -> ListZipper a
-previous x@(ListZipper [] _ _) = x
-previous (ListZipper (p : ps) c n) = ListZipper ps p (c : n)
-
-current :: ListZipper a -> a
-current ListZipper{current} = current
-
-fromNonEmpty :: NonEmpty a -> ListZipper a
-fromNonEmpty (x :| xs) = ListZipper [] x xs
 
 data State a = State
     { tick :: Integer
@@ -84,10 +63,10 @@ render State{menuItems, tick} =
     Brick.center $
         Brick.vCenter (logo tick <=> Brick.str " " <=> menu)
   where
-    ListZipper prev curr next = menuItems
-    menu = Brick.vBox $ fmap (renderMenuItem emptyFrame) (List.reverse prev) <> [renderMenuItem selectedFrame curr] <> fmap (renderMenuItem emptyFrame) next
+    menu = Brick.vBox $ renderZipper f menuItems
+    f False = renderMenuItem " "
+    f True = renderMenuItem selectedFrame
     selectedFrame = cursorAnimSprites Prelude.!! (fromInteger tick `mod` Prelude.length cursorAnimSprites)
-    emptyFrame = " "
 
 renderMenuItem :: (MenuItem a) => Text.Text -> a -> Brick.Widget n
 renderMenuItem selector menuItem =

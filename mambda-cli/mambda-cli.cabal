@@ -48,6 +48,7 @@ executable mambda
   main-is: Main.hs
   other-modules:
       Mambda.Widgets.Game
+      Mambda.Widgets.ListZipper
       Mambda.Widgets.MainMenu
       Mambda.Widgets.Settings
       Paths_mambda_cli
