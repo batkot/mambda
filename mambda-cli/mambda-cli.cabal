@@ -47,6 +47,7 @@ library
 executable mambda
   main-is: Main.hs
   other-modules:
+      Mambda.Widgets.Cursor
       Mambda.Widgets.Game
       Mambda.Widgets.ListZipper
       Mambda.Widgets.MainMenu

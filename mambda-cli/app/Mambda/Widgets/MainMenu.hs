@@ -11,7 +11,7 @@ module Mambda.Widgets.MainMenu (
 
 import Prelude
 
-import Brick ((<=>))
+import Brick ((<+>), (<=>))
 import Brick qualified
 import Brick.Widgets.Center qualified as Brick
 import Graphics.Vty qualified as Vty
@@ -21,6 +21,7 @@ import Data.List.NonEmpty
 
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
+import Mambda.Widgets.Cursor qualified as Cursor
 import Mambda.Widgets.ListZipper
 
 class MenuItem a where
@@ -64,13 +65,11 @@ render State{menuItems, tick} =
         Brick.vCenter (logo tick <=> Brick.str " " <=> menu)
   where
     menu = Brick.vBox $ renderZipper f menuItems
-    f False = renderMenuItem " "
-    f True = renderMenuItem selectedFrame
-    selectedFrame = cursorAnimSprites Prelude.!! (fromInteger tick `mod` Prelude.length cursorAnimSprites)
+    f False = renderMenuItem $ Brick.str " "
+    f True = renderMenuItem $ Cursor.cursorFrame tick
 
-renderMenuItem :: (MenuItem a) => Text.Text -> a -> Brick.Widget n
-renderMenuItem selector menuItem =
-    Brick.str . Text.unpack $ selector <> " " <> toMenuItem menuItem
+renderMenuItem :: (MenuItem a) => Brick.Widget n -> a -> Brick.Widget n
+renderMenuItem selector menuItem = selector <+> Brick.str (Text.unpack $ " " <> toMenuItem menuItem)
 
 attributeMap :: Brick.AttrMap
 attributeMap =
@@ -85,6 +84,3 @@ brightAttr = Brick.attrName "bright"
 
 greenAttr :: Brick.AttrName
 greenAttr = Brick.attrName "green"
-
-cursorAnimSprites :: [Text.Text]
-cursorAnimSprites = ["⠇", "⡆", "⣄", "⣠", "⢰", "⠸", "⠙", "⠋"]
