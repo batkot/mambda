@@ -15,6 +15,7 @@ import Brick.Widgets.Center qualified as Brick
 import Mambda.Game qualified as Game
 
 import Brick.Widgets.Border qualified as Brick
+import Brick.Widgets.Table qualified as Table
 import Data.Vector qualified as Vector
 import Graphics.Vty qualified as Vty
 
@@ -57,12 +58,12 @@ render :: State -> Brick.Widget n
 render (State s finished) =
     Brick.center $
         Brick.vCenter $
-            Brick.borderWithLabel (Brick.str label) frame
+            Brick.border $
+                Table.renderTable frameTable
   where
     Game.Render r = runIdentity $ Game.render s
-    label = if finished then "Game Over" else "Game"
-    frame = Brick.vBox $ Vector.toList $ fmap renderRow r
-    renderRow v = Brick.hBox $ Vector.toList $ renderGlyph <$> v
+    frameTable = Table.columnBorders False $ Table.rowBorders False $ Table.surroundingBorder False $ Table.table worldGrid
+    worldGrid = Vector.toList $ Vector.toList . fmap renderGlyph <$> r
 
 attributeMap :: Brick.AttrMap
 attributeMap =
