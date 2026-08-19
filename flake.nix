@@ -27,6 +27,7 @@
         };
         haskellPkgs = pkgs.haskell.packages.${ghc}.override {
           overrides = ghcSelf: ghcSuper: {
+            generic-optics = pkgs.haskell.lib.dontCheck (ghcSuper.generic-optics);
             mambda-cli = ghcSuper.callCabal2nix "mambda-cli" ./mambda-cli {};
           };
         };

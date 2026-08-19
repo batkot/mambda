@@ -20,7 +20,9 @@ import Brick.Widgets.Table qualified as Table
 import Control.Monad (unless)
 import Data.Bifunctor
 import Data.Vector qualified as Vector
+import GHC.Generics (Generic)
 import Graphics.Vty qualified as Vty
+import Optics.Core
 
 data GameState = Running | Paused | Finished
     deriving stock (Eq)
@@ -29,6 +31,7 @@ data State = State
     { game :: Game.State Identity
     , state :: GameState
     }
+    deriving stock (Generic)
 
 renderGlyph :: Game.Glyph -> Brick.Widget n
 renderGlyph Game.Empty = Brick.withAttr emptyAttr $ Brick.str "  "
@@ -50,26 +53,26 @@ boolToState False = Running
 
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n State ()
 handleEvent (Brick.AppEvent _) = do
-    paused <- Brick.gets $ \(State{state}) -> state == Paused
+    paused <- Brick.gets $ (==) Paused . view #state
     unless paused $ Brick.modify $ \(State g s) -> uncurry (flip State) $ runIdentity $ first boolToState <$> Game.step g
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) =
-    Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control (Game.ChangeDirection Game.up) g}
+    Brick.modify $ #game %~ (runIdentity . Game.control (Game.ChangeDirection Game.up))
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) =
-    Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control (Game.ChangeDirection Game.down) g}
+    Brick.modify $ #game %~ (runIdentity . Game.control (Game.ChangeDirection Game.down))
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KLeft [])) =
-    Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control (Game.ChangeDirection Game.left) g}
+    Brick.modify $ #game %~ (runIdentity . Game.control (Game.ChangeDirection Game.left))
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KRight [])) =
-    Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control (Game.ChangeDirection Game.right) g}
+    Brick.modify $ #game %~ (runIdentity . Game.control (Game.ChangeDirection Game.right))
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) =
     Brick.modify $ \s@(State _ r) -> if r == Finished then initState else s
 handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'p') [])) = do
-    gameState <- Brick.gets $ \(State{state}) -> state
+    gameState <- Brick.gets $ view #state
     case gameState of
         Finished -> pure ()
-        Paused -> Brick.modify $ \s -> s{state = Running}
-        Running -> Brick.modify $ \s -> s{state = Paused}
+        Paused -> Brick.modify $ #state .~ Running
+        Running -> Brick.modify $ #state .~ Paused
 handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar ' ') [])) =
-    Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.laser g}
+    Brick.modify $ #game %~ runIdentity . Game.laser
 handleEvent _ = pure ()
 
 render :: State -> Brick.Widget n

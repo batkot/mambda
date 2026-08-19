@@ -12,6 +12,7 @@ default-extensions:
 - NoFieldSelectors
 - NoImplicitPrelude
 - OverloadedStrings
+- OverloadedLabels
 - DeriveAnyClass
 - GADTs
 
@@ -61,7 +62,9 @@ executables:
     - bytestring
     - containers
     - file-embed
+    - generic-optics
     - mambda-cli
+    - optics-core
     - text
     - vector
     - vty

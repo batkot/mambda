@@ -21,8 +21,10 @@ import Data.List.NonEmpty
 
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
+import GHC.Generics (Generic)
 import Mambda.Widgets.Cursor qualified as Cursor
 import Mambda.Widgets.ListZipper
+import Optics.Core
 
 class MenuItem a where
     toMenuItem :: a -> Text.Text
@@ -31,7 +33,7 @@ data State a = State
     { tick :: Integer
     , menuItems :: ListZipper a
     }
-    deriving stock (Show, Eq, Ord)
+    deriving stock (Show, Eq, Ord, Generic)
 
 initState :: NonEmpty a -> State a
 initState = State 0 . fromNonEmpty
@@ -46,17 +48,16 @@ logo offset =
 
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n (State a) (Maybe a)
 handleEvent (Brick.AppEvent _) = do
-    Brick.modify $ \(State x y) -> State (x + 1) y
+    Brick.modify $ #tick %~ (+ 1)
     pure Nothing
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) = do
-    Brick.modify $ \(State x items) -> State x $ next items
+    Brick.modify $ #menuItems %~ next
     pure Nothing
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) = do
-    Brick.modify $ \(State x items) -> State x $ previous items
+    Brick.modify $ #menuItems %~ previous
     pure Nothing
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) = do
-    State x items <- Brick.get
-    pure $ Just $ current items
+    Brick.gets $ Just . current . view #menuItems
 handleEvent _ = pure Nothing
 
 render :: (MenuItem a) => State a -> Brick.Widget n

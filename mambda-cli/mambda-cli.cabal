@@ -34,6 +34,7 @@ library
       NoFieldSelectors
       NoImplicitPrelude
       OverloadedStrings
+      OverloadedLabels
       DeriveAnyClass
       GADTs
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
@@ -59,6 +60,7 @@ executable mambda
       NoFieldSelectors
       NoImplicitPrelude
       OverloadedStrings
+      OverloadedLabels
       DeriveAnyClass
       GADTs
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
@@ -69,8 +71,10 @@ executable mambda
     , bytestring
     , containers
     , file-embed
+    , generic-optics
     , linear
     , mambda-cli
+    , optics-core
     , text
     , vector
     , vty
@@ -87,6 +91,7 @@ test-suite unit
       NoFieldSelectors
       NoImplicitPrelude
       OverloadedStrings
+      OverloadedLabels
       DeriveAnyClass
       GADTs
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
