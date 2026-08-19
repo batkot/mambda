@@ -9,7 +9,7 @@ module Mambda.Game (
     laser,
     Render (..),
     Glyph (..),
-    SnakeDirection,
+    PlayerInput (..),
     up,
     down,
     left,
@@ -107,6 +107,9 @@ newtype Lifetime = Lifetime Ticks
     deriving anyclass (Aztecs.Component m)
 
 newtype SnakeDirection = SnakeDirection Space
+
+data PlayerInput
+    = ChangeDirection SnakeDirection
 
 up :: SnakeDirection
 up = SnakeDirection $ V2 (-1) 0
@@ -223,8 +226,8 @@ endGameSystem = fmap Vector.null $ Aztecs.system $ Aztecs.runQuery $ Aztecs.quer
 step :: (Monad m, Typeable m) => State m -> m (Bool, State m)
 step (State world) = second State <$> Aztecs.runAccess gameStep world
 
-control :: (Monad m) => SnakeDirection -> State m -> m (State m)
-control (SnakeDirection dir) (State world) = State . snd <$> Aztecs.runAccess control' world
+control :: (Monad m) => PlayerInput -> State m -> m (State m)
+control (ChangeDirection (SnakeDirection dir)) (State world) = State . snd <$> Aztecs.runAccess control' world
   where
     control' =
         Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.queryMap (\_ -> Velocity dir)

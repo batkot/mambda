@@ -53,13 +53,13 @@ handleEvent (Brick.AppEvent _) = do
     paused <- Brick.gets $ \(State{state}) -> state == Paused
     unless paused $ Brick.modify $ \(State g s) -> uncurry (flip State) $ runIdentity $ first boolToState <$> Game.step g
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) =
-    Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control Game.up g}
+    Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control (Game.ChangeDirection Game.up) g}
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) =
-    Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control Game.down g}
+    Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control (Game.ChangeDirection Game.down) g}
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KLeft [])) =
-    Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control Game.left g}
+    Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control (Game.ChangeDirection Game.left) g}
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KRight [])) =
-    Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control Game.right g}
+    Brick.modify $ \s@(State g _) -> s{game = runIdentity $ Game.control (Game.ChangeDirection Game.right) g}
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) =
     Brick.modify $ \s@(State _ r) -> if r == Finished then initState else s
 handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'p') [])) = do
