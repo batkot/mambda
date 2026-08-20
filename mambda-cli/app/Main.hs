@@ -5,6 +5,7 @@ import Prelude
 import Brick qualified
 import Brick.BChan qualified as BChan
 import Graphics.Vty qualified as Vty
+import Graphics.Vty.CrossPlatform as VtyX
 
 import Control.Concurrent qualified as Concurrent
 import Control.Monad (forever, void)
@@ -46,8 +47,10 @@ main = do
     void $ Concurrent.forkIO $ forever $ do
         BChan.writeBChan tickChan Tick
         Concurrent.threadDelay 250_000
-    void $ Brick.customMainWithDefaultVty (Just tickChan) app $ Menu $ MainMenu.initState mainMenu
+    initVty <- buildVty
+    void $ Brick.customMain initVty buildVty (Just tickChan) app $ Menu $ MainMenu.initState mainMenu
   where
+    buildVty = VtyX.mkVty Vty.defaultConfig
     app :: Brick.App MambdaCliState MambdaEvent MambdaCliResource
     app =
         Brick.App

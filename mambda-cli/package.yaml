@@ -68,6 +68,7 @@ executables:
     - text
     - vector
     - vty
+    - vty-crossplatform
 
 tests:
   unit:

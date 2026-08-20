@@ -78,6 +78,7 @@ executable mambda
     , text
     , vector
     , vty
+    , vty-crossplatform
   default-language: GHC2024
 
 test-suite unit
