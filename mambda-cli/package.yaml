@@ -62,9 +62,9 @@ executables:
     - bytestring
     - containers
     - file-embed
-    - generic-optics
+    - generic-lens
     - mambda-cli
-    - optics-core
+    - microlens
     - text
     - vector
     - vty

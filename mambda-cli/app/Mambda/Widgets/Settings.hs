@@ -15,15 +15,16 @@ import Brick.Widgets.Center qualified as Brick
 import Brick.Widgets.Table qualified as Table
 import Graphics.Vty qualified as Vty
 
-import Mambda.Widgets.Cursor qualified as Cursor
 import Mambda.Widgets.ListZipper qualified as LZ
 
 import Data.List.NonEmpty
 
 import Data.Functor (($>))
+import Data.Generics.Labels ()
 import Data.Text qualified as Text
 import GHC.Generics (Generic)
-import Optics.Core
+import Lens.Micro
+import Lens.Micro.Extras
 
 data Setting n ev = Setting
     { label :: Text.Text
@@ -86,26 +87,26 @@ initState =
         , opt = Settings Small 3
         }
 
-handleEvent :: Brick.BrickEvent n e -> Brick.EventM n (State n e) Bool
+handleEvent :: Brick.BrickEvent n e -> Brick.EventM n (State n e) (Maybe Settings)
 handleEvent (Brick.AppEvent _) = do
     Brick.modify $ #tick %~ (+ 1)
-    pure False
+    pure Nothing
 handleEvent ev = do
     handled <- eventHandler ev
     if handled
-        then pure False
+        then pure Nothing
         else case ev of
-            (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) -> pure True
+            (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) -> Brick.gets $ Just . view #opt
             (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) -> do
                 Brick.modify $ #settings %~ LZ.next
-                pure False
+                pure Nothing
             (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) -> do
                 Brick.modify $ #settings %~ LZ.previous
-                pure False
-            _ -> pure False
+                pure Nothing
+            _ -> pure Nothing
 
 render :: State n ev -> Brick.Widget n
-render State{tick, settings} =
+render state =
     Brick.center $
         Brick.vCenter $
             Table.renderTable $
@@ -113,9 +114,10 @@ render State{tick, settings} =
                     Table.columnBorders False $
                         Table.rowBorders False $
                             Table.alignLeft 0 $
-                                Table.alignRight 2 $
+                                Table.alignCenter 1 $
                                     Table.table $
-                                        LZ.renderZipper renderSetting settings
+                                        LZ.renderZipper renderSetting $
+                                            state ^. #settings
   where
     renderSetting :: Bool -> Setting n ev -> [Brick.Widget n]
     renderSetting focused Setting{label, picker = SettingsPicker{render, state}} = [Brick.padLeftRight 3 $ Brick.str $ Text.unpack label, render focused state]

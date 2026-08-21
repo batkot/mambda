@@ -19,10 +19,12 @@ import Brick.Widgets.Border qualified as Brick
 import Brick.Widgets.Table qualified as Table
 import Control.Monad (unless)
 import Data.Bifunctor
+import Data.Generics.Labels ()
 import Data.Vector qualified as Vector
 import GHC.Generics (Generic)
 import Graphics.Vty qualified as Vty
-import Optics.Core
+import Lens.Micro ((%~), (.~))
+import Lens.Micro.Extras
 
 data GameState = Running | Paused | Finished
     deriving stock (Eq)

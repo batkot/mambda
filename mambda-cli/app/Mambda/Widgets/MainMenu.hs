@@ -19,12 +19,14 @@ import Graphics.Vty qualified as Vty
 import Data.FileEmbed as FileEmbed
 import Data.List.NonEmpty
 
+import Data.Generics.Labels ()
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
 import GHC.Generics (Generic)
+import Lens.Micro
+import Lens.Micro.Extras
 import Mambda.Widgets.Cursor qualified as Cursor
 import Mambda.Widgets.ListZipper
-import Optics.Core
 
 class MenuItem a where
     toMenuItem :: a -> Text.Text

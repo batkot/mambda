@@ -10,6 +10,7 @@ import Graphics.Vty.CrossPlatform as VtyX
 import Control.Concurrent qualified as Concurrent
 import Control.Monad (forever, void)
 import Data.List.NonEmpty
+import Data.Maybe qualified as Maybe
 import Data.Text qualified as Text
 import Mambda.Widgets.Game qualified as Game
 import Mambda.Widgets.MainMenu qualified as MainMenu
@@ -81,7 +82,7 @@ main = do
                 Brick.put $ Game newGameState
             Settings settingsState -> do
                 (newSettingsState, done) <- Brick.nestEventM settingsState (Settings.handleEvent ev)
-                let newState = if done then Menu (MainMenu.initState mainMenu) else Settings newSettingsState
+                let newState = if Maybe.isJust done then Menu (MainMenu.initState mainMenu) else Settings newSettingsState
                 Brick.put newState
 
     drawUI :: MambdaCliState -> [Brick.Widget MambdaCliResource]

@@ -48,6 +48,7 @@ library
 executable mambda
   main-is: Main.hs
   other-modules:
+      Form
       Mambda.Widgets.Cursor
       Mambda.Widgets.Game
       Mambda.Widgets.ListZipper
@@ -71,10 +72,10 @@ executable mambda
     , bytestring
     , containers
     , file-embed
-    , generic-optics
+    , generic-lens
     , linear
     , mambda-cli
-    , optics-core
+    , microlens
     , text
     , vector
     , vty
