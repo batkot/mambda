@@ -5,6 +5,8 @@ module Mambda.Widgets.ListZipper (
     previous,
     renderZipper,
     fromNonEmpty,
+    swapCurrent,
+    modifyCurrent,
 ) where
 
 import Prelude
@@ -29,6 +31,12 @@ previous (ListZipper (p : ps) c n) = ListZipper ps p (c : n)
 
 current :: ListZipper a -> a
 current ListZipper{current} = current
+
+swapCurrent :: a -> ListZipper a -> ListZipper a
+swapCurrent x = modifyCurrent $ const x
+
+modifyCurrent :: (a -> a) -> ListZipper a -> ListZipper a
+modifyCurrent f l@ListZipper{current} = l{current = f current}
 
 fromNonEmpty :: NonEmpty a -> ListZipper a
 fromNonEmpty (x :| xs) = ListZipper [] x xs

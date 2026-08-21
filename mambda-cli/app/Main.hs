@@ -18,7 +18,7 @@ import Mambda.Widgets.Settings qualified as Settings
 data MambdaCliState
     = Menu (MainMenu.State MenuItem)
     | Game Game.State
-    | Settings Settings.State
+    | Settings (Settings.State MambdaCliResource MambdaEvent)
 
 data MambdaCliResource = MambdaCliResource
     deriving stock (Show, Eq, Ord)

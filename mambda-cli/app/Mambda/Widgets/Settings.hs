@@ -20,94 +20,91 @@ import Mambda.Widgets.ListZipper qualified as LZ
 
 import Data.List.NonEmpty
 
+import Data.Functor (($>))
 import Data.Text qualified as Text
 import GHC.Generics (Generic)
-import Linear (V2)
 import Optics.Core
 
-data Setting = Setting
+data Setting n ev = Setting
     { label :: Text.Text
-    , value :: Text.Text
-    }
-    deriving stock (Show, Eq, Ord)
-
-data State = State
-    { tick :: Integer
-    , settings :: LZ.ListZipper Setting
-    }
-    deriving stock (Show, Eq, Ord)
-
-data WorldSize = Small | Medium | Large
-    deriving (Bounded, Enum)
-
-data Settings = Settings
-    { worldSize :: WorldSize
+    , picker :: SettingsPicker n ev
     }
     deriving stock (Generic)
 
-data SettingsPicker = forall setting internal. SettingsPicker
+data State n ev = State
+    { tick :: Integer
+    , settings :: LZ.ListZipper (Setting n ev)
+    , opt :: Settings
+    }
+    deriving stock (Generic)
+
+data WorldSize = Small | Medium | Large
+    deriving (Show, Ord, Eq, Bounded, Enum)
+
+data Settings = Settings
+    { worldSize :: WorldSize
+    , snakeSpeed :: Integer
+    }
+    deriving stock (Show, Eq, Ord, Generic)
+
+data SettingsPicker n ev = forall setting internal. SettingsPicker
     { lens :: Lens' Settings setting
     , hmm :: internal -> setting
     , state :: internal
-    , render :: setting -> internal -> Brick.Widget ()
-    , eventHandler :: Brick.BrickEvent () () -> Brick.EventM () internal ()
+    , render :: Bool -> internal -> Brick.Widget n
+    , eventHandler :: Brick.BrickEvent n ev -> Brick.EventM n internal Bool
     }
 
-data Foo = Foo {yyy :: Settings, sets :: LZ.ListZipper SettingsPicker} deriving (Generic)
-
-eventHandler :: Brick.BrickEvent () () -> Brick.EventM () Foo ()
+eventHandler :: Brick.BrickEvent n ev -> Brick.EventM n (State n ev) Bool
 eventHandler x = do
-    SettingsPicker{lens, hmm, state, eventHandler = eh} <- Brick.gets $ LZ.current . view #sets
-    newState <- fmap hmm $ Brick.nestEventM' state $ eh x
-    Brick.modify $ \s -> s & #yyy %~ (lens .~ newState)
-    pure ()
+    SettingsPicker{lens, hmm, state, eventHandler = eh, render} <- Brick.gets $ view #picker . LZ.current . view #settings
+    (newInternal, handled) <- Brick.nestEventM state $ eh x
+    let newPicker = SettingsPicker{lens, hmm, state = newInternal, eventHandler = eh, render}
+    Brick.modify $ \s -> s & #opt %~ (lens .~ hmm newInternal) & #settings %~ LZ.modifyCurrent (#picker .~ newPicker)
+    pure handled
 
-selectPicker :: NonEmpty a -> Lens' Settings a -> SettingsPicker
-selectPicker options lens = SettingsPicker lens LZ.current (LZ.fromNonEmpty options) render eventHandler
+selectPicker :: forall a n ev. (a -> Text.Text) -> NonEmpty a -> Lens' Settings a -> SettingsPicker n ev
+selectPicker f options lens = SettingsPicker lens LZ.current (LZ.fromNonEmpty options) render eventHandler
   where
-    eventHandler :: Brick.BrickEvent n e -> Brick.EventM n (LZ.ListZipper a) ()
-    eventHandler (Brick.VtyEvent (Vty.EvKey Vty.KLeft [])) = Brick.modify LZ.next
-    eventHandler (Brick.VtyEvent (Vty.EvKey Vty.KRight [])) = Brick.modify LZ.next
-    eventHandler _ = pure ()
-    render :: a -> LZ.ListZipper a -> Brick.Widget n
-    render _ _ = Brick.str ""
+    eventHandler :: Brick.BrickEvent n e -> Brick.EventM n (LZ.ListZipper a) Bool
+    eventHandler (Brick.VtyEvent (Vty.EvKey Vty.KRight [])) = Brick.modify LZ.next $> True
+    eventHandler (Brick.VtyEvent (Vty.EvKey Vty.KLeft [])) = Brick.modify LZ.previous $> True
+    eventHandler _ = pure False
+    render :: Bool -> LZ.ListZipper a -> Brick.Widget n
+    render False x = Brick.padLeftRight 2 $ Brick.str . Text.unpack . f . LZ.current $ x
+    render True x = Brick.str $ "< " <> Text.unpack (f (LZ.current x)) <> " >"
 
--- Settings
--- Start Speed?
--- Keybindings
--- Snake(s)
--- Color
--- Up, down, left, right, fire
--- Game
--- Pause, Quit
-
-initState :: State
+initState :: State n ev
 initState =
-    State 0 $
-        LZ.fromNonEmpty $
-            Setting{label = "Snake Speed", value = "3"}
-                :| [ Setting{label = "Snake Color", value = "Green"}
-                   , Setting{label = "Controls", value = ""}
-                   , Setting{label = "Up", value = "Arrow Up"}
-                   , Setting{label = "Down", value = "Arrow Down"}
-                   , Setting{label = "Left", value = "Arrow Left"}
-                   , Setting{label = "Right", value = "Arrow Right"}
-                   ]
+    State
+        { tick = 0
+        , settings =
+            LZ.fromNonEmpty $
+                Setting "World Size" (selectPicker Text.show (Small :| [Medium, Large]) #worldSize)
+                    :| [ Setting "Snake speed" (selectPicker Text.show (1 :| [2 .. 10]) #snakeSpeed)
+                       ]
+        , opt = Settings Small 3
+        }
 
-handleEvent :: Brick.BrickEvent n e -> Brick.EventM n State Bool
+handleEvent :: Brick.BrickEvent n e -> Brick.EventM n (State n e) Bool
 handleEvent (Brick.AppEvent _) = do
-    Brick.modify $ \(State{tick, settings}) -> State (tick + 1) settings
+    Brick.modify $ #tick %~ (+ 1)
     pure False
-handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) = pure True
-handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) = do
-    Brick.modify $ \(State{tick, settings}) -> State tick $ LZ.next settings
-    pure False
-handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) = do
-    Brick.modify $ \(State{tick, settings}) -> State tick $ LZ.previous settings
-    pure False
-handleEvent _ = pure False
+handleEvent ev = do
+    handled <- eventHandler ev
+    if handled
+        then pure False
+        else case ev of
+            (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) -> pure True
+            (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) -> do
+                Brick.modify $ #settings %~ LZ.next
+                pure False
+            (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) -> do
+                Brick.modify $ #settings %~ LZ.previous
+                pure False
+            _ -> pure False
 
-render :: State -> Brick.Widget n
+render :: State n ev -> Brick.Widget n
 render State{tick, settings} =
     Brick.center $
         Brick.vCenter $
@@ -118,10 +115,10 @@ render State{tick, settings} =
                             Table.alignLeft 0 $
                                 Table.alignRight 2 $
                                     Table.table $
-                                        LZ.renderZipper renderTableRow settings
+                                        LZ.renderZipper renderSetting settings
   where
-    renderTableRow True Setting{label, value} = [Cursor.cursorFrame tick, Brick.str (Text.unpack label), Brick.str (Text.unpack value)]
-    renderTableRow False Setting{label, value} = [Brick.str "  ", Brick.str (Text.unpack label), Brick.str (Text.unpack value)]
+    renderSetting :: Bool -> Setting n ev -> [Brick.Widget n]
+    renderSetting focused Setting{label, picker = SettingsPicker{render, state}} = [Brick.padLeftRight 3 $ Brick.str $ Text.unpack label, render focused state]
 
 attributeMap :: Brick.AttrMap
 attributeMap =
