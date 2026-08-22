@@ -56,7 +56,7 @@ boolToState False = Running
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n State ()
 handleEvent (Brick.AppEvent _) = do
     paused <- Brick.gets $ (==) Paused . view #state
-    unless paused $ Brick.modify $ \(State g s) -> uncurry (flip State) $ runIdentity $ first boolToState <$> Game.step g
+    unless paused $ Brick.modify $ \(State g _) -> uncurry (flip State) $ runIdentity $ first boolToState <$> Game.step g
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) =
     Brick.modify $ #game %~ (runIdentity . Game.control (Game.ChangeDirection Game.up))
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) =

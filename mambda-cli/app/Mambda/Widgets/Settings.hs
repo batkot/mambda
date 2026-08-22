@@ -25,6 +25,7 @@ import Data.Text qualified as Text
 import GHC.Generics (Generic)
 import Lens.Micro
 import Lens.Micro.Extras
+import Mambda.Game (PlayerInput (..), down, left, right, up)
 
 data Setting n ev = Setting
     { label :: Text.Text
@@ -42,11 +43,24 @@ data State n ev = State
 data WorldSize = Small | Medium | Large
     deriving (Show, Ord, Eq, Bounded, Enum)
 
+data KeyBindings = KeyBindings
+    { snakeUp :: Vty.Key
+    , snakeDown :: Vty.Key
+    , snakeLeft :: Vty.Key
+    , snakeRight :: Vty.Key
+    }
+    deriving stock (Generic)
+
+defaultKeyBindings :: KeyBindings
+defaultKeyBindings =
+    KeyBindings Vty.KUp Vty.KDown Vty.KLeft Vty.KRight
+
 data Settings = Settings
     { worldSize :: WorldSize
     , snakeSpeed :: Integer
+    , keyBindings :: KeyBindings
     }
-    deriving stock (Show, Eq, Ord, Generic)
+    deriving stock (Generic)
 
 data SettingsPicker n ev = forall setting internal. SettingsPicker
     { lens :: Lens' Settings setting
@@ -75,6 +89,42 @@ selectPicker f options lens = SettingsPicker lens LZ.current (LZ.fromNonEmpty op
     render False x = Brick.padLeftRight 2 $ Brick.str . Text.unpack . f . LZ.current $ x
     render True x = Brick.str $ "< " <> Text.unpack (f (LZ.current x)) <> " >"
 
+data KeyPickerState = Picked Vty.Key | Selecting Vty.Key
+
+keyPicker :: forall n ev. Vty.Key -> Lens' Settings Vty.Key -> SettingsPicker n ev
+keyPicker def lens = SettingsPicker lens hmm (Picked def) render eventHandler
+  where
+    hmm (Picked key) = key
+    hmm (Selecting key) = key
+    render :: Bool -> KeyPickerState -> Brick.Widget n
+    render True (Picked key) =
+        Brick.str $ "| " <> Text.unpack (keyGlyph key) <> " |"
+    render False (Picked key) =
+        Brick.str . Text.unpack . keyGlyph $ key
+    render _ _ = Brick.str "Press key"
+    eventHandler ev = do
+        s <- Brick.get
+        case (s, ev) of
+            (Picked key, Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) ->
+                Brick.put (Selecting key) $> True
+            (Selecting _, Brick.VtyEvent (Vty.EvKey key [])) ->
+                Brick.put (Picked key) $> True
+            _ -> pure False
+
+keyGlyph :: Vty.Key -> Text.Text
+keyGlyph Vty.KEsc = "Esc"
+keyGlyph Vty.KUp = "↑"
+keyGlyph Vty.KDown = "↓"
+keyGlyph Vty.KLeft = "←"
+keyGlyph Vty.KRight = "→"
+keyGlyph (Vty.KChar ' ') = "Space"
+keyGlyph (Vty.KChar c) = Text.pack [c]
+keyGlyph Vty.KEnd = "End"
+keyGlyph Vty.KDel = "Del"
+keyGlyph Vty.KEnter = "Enter"
+keyGlyph Vty.KBS = "Backspace"
+keyGlyph other = Text.show other
+
 initState :: State n ev
 initState =
     State
@@ -83,8 +133,12 @@ initState =
             LZ.fromNonEmpty $
                 Setting "World Size" (selectPicker Text.show (Small :| [Medium, Large]) #worldSize)
                     :| [ Setting "Snake speed" (selectPicker Text.show (1 :| [2 .. 10]) #snakeSpeed)
+                       , Setting "Up" (keyPicker Vty.KUp (#keyBindings . #snakeUp))
+                       , Setting "Down" (keyPicker Vty.KDown (#keyBindings . #snakeDown))
+                       , Setting "Left" (keyPicker Vty.KLeft (#keyBindings . #snakeLeft))
+                       , Setting "Right" (keyPicker Vty.KRight (#keyBindings . #snakeRight))
                        ]
-        , opt = Settings Small 3
+        , opt = Settings Small 3 defaultKeyBindings
         }
 
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n (State n e) (Maybe Settings)
