@@ -14,7 +14,7 @@ import Brick qualified
 import Brick.Widgets.Center qualified as Brick
 import Mambda.Game qualified as Game
 
-import Brick ((<+>), (<=>))
+import Brick ((<=>))
 import Brick.Widgets.Border qualified as Brick
 import Brick.Widgets.Table qualified as Table
 import Control.Monad (unless)
@@ -84,14 +84,6 @@ handleEvent (Brick.AppEvent _) = do
     unless paused $ Brick.modify $ \s ->
         let (state, game) = runIdentity $ first boolToState <$> Game.step (s ^. #game)
          in s & #game .~ game & #state .~ state
-handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) =
-    Brick.modify $ #game %~ (runIdentity . Game.control (Game.ChangeDirection Game.up))
-handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) =
-    Brick.modify $ #game %~ (runIdentity . Game.control (Game.ChangeDirection Game.down))
-handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KLeft [])) =
-    Brick.modify $ #game %~ (runIdentity . Game.control (Game.ChangeDirection Game.left))
-handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KRight [])) =
-    Brick.modify $ #game %~ (runIdentity . Game.control (Game.ChangeDirection Game.right))
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) =
     Brick.modify $ \s@(State _ r _ settings) -> if r == Finished then initState settings else s
 handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'p') [])) = do

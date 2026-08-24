@@ -10,7 +10,6 @@ import Graphics.Vty.CrossPlatform as VtyX
 import Control.Concurrent qualified as Concurrent
 import Control.Monad (forever, void)
 import Data.List.NonEmpty
-import Data.Maybe qualified as Maybe
 import Data.Text qualified as Text
 import Mambda.Widgets.Game qualified as Game
 import Mambda.Widgets.MainMenu qualified as MainMenu
@@ -38,8 +37,6 @@ mainMenu :: Settings.Settings -> NonEmpty MenuItem
 mainMenu settings =
     MenuItem{label = "Start Game", transitionTo = Game $ Game.initState settings}
         :| [ MenuItem{label = "Settings", transitionTo = Settings Settings.initState}
-           , MenuItem{label = "Scoreboard", transitionTo = Game $ Game.initState settings}
-           , MenuItem{label = "Quit", transitionTo = Game $ Game.initState settings}
            ]
 
 main :: IO ()
