@@ -23,8 +23,11 @@ import Data.Generics.Labels ()
 import Data.Vector qualified as Vector
 import GHC.Generics (Generic)
 import Graphics.Vty qualified as Vty
-import Lens.Micro ((%~), (.~))
+import Lens.Micro ((%~), (&), (.~), (^.))
 import Lens.Micro.Extras
+
+import Data.Map qualified as Map
+import Mambda.Widgets.Settings qualified as S
 
 data GameState = Running | Paused | Finished
     deriving stock (Eq)
@@ -32,8 +35,12 @@ data GameState = Running | Paused | Finished
 data State = State
     { game :: Game.State Identity
     , state :: GameState
+    , keyBindings :: KeyMap
+    , settings :: S.Settings
     }
     deriving stock (Generic)
+
+newtype KeyMap = KeyMap (Map.Map Vty.Key Game.PlayerInput)
 
 renderGlyph :: Game.Glyph -> Brick.Widget n
 renderGlyph Game.Empty = Brick.withAttr emptyAttr $ Brick.str "  "
@@ -46,8 +53,26 @@ renderGlyph Game.Portal = Brick.withAttr portalAttr $ Brick.str "▌▐"
 renderGlyph Game.Poison = Brick.withAttr poisonAttr $ Brick.str "██"
 renderGlyph Game.Laser = Brick.withAttr laserAttr $ Brick.str "╪╪"
 
-initState :: State
-initState = State (runIdentity $ Game.init $ Game.WorldSettings 20 20) Running
+initState :: S.Settings -> State
+initState settings = State (runIdentity $ Game.init worldSettings) Running keyBindings settings
+  where
+    worldSettings = worldSizeToSettings $ settings ^. #worldSize
+    keyBindings = mkKeyBindings $ settings ^. #keyBindings
+
+worldSizeToSettings :: S.WorldSize -> Game.WorldSettings
+worldSizeToSettings S.Small = Game.WorldSettings 20 20
+worldSizeToSettings S.Medium = Game.WorldSettings 50 30
+worldSizeToSettings S.Large = Game.WorldSettings 90 60
+
+mkKeyBindings :: S.KeyBindings -> KeyMap
+mkKeyBindings keys =
+    KeyMap $
+        Map.fromList
+            [ (keys ^. #snakeUp, Game.ChangeDirection Game.up)
+            , (keys ^. #snakeDown, Game.ChangeDirection Game.down)
+            , (keys ^. #snakeLeft, Game.ChangeDirection Game.left)
+            , (keys ^. #snakeRight, Game.ChangeDirection Game.right)
+            ]
 
 boolToState :: Bool -> GameState
 boolToState True = Finished
@@ -56,7 +81,9 @@ boolToState False = Running
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n State ()
 handleEvent (Brick.AppEvent _) = do
     paused <- Brick.gets $ (==) Paused . view #state
-    unless paused $ Brick.modify $ \(State g _) -> uncurry (flip State) $ runIdentity $ first boolToState <$> Game.step g
+    unless paused $ Brick.modify $ \s ->
+        let (state, game) = runIdentity $ first boolToState <$> Game.step (s ^. #game)
+         in s & #game .~ game & #state .~ state
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) =
     Brick.modify $ #game %~ (runIdentity . Game.control (Game.ChangeDirection Game.up))
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) =
@@ -66,7 +93,7 @@ handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KLeft [])) =
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KRight [])) =
     Brick.modify $ #game %~ (runIdentity . Game.control (Game.ChangeDirection Game.right))
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) =
-    Brick.modify $ \s@(State _ r) -> if r == Finished then initState else s
+    Brick.modify $ \s@(State _ r _ settings) -> if r == Finished then initState settings else s
 handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'p') [])) = do
     gameState <- Brick.gets $ view #state
     case gameState of
@@ -75,10 +102,15 @@ handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'p') [])) = do
         Running -> Brick.modify $ #state .~ Paused
 handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar ' ') [])) =
     Brick.modify $ #game %~ runIdentity . Game.laser
+handleEvent (Brick.VtyEvent (Vty.EvKey k [])) = do
+    KeyMap keyMap <- Brick.gets $ view #keyBindings
+    case Map.lookup k keyMap of
+        Nothing -> pure ()
+        Just input -> Brick.modify $ #game %~ (runIdentity . Game.control input)
 handleEvent _ = pure ()
 
 render :: State -> Brick.Widget n
-render (State s status) =
+render (State s status _ _) =
     Brick.center $
         Brick.vCenter $
             Brick.border (Table.renderTable frameTable)

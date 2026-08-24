@@ -1,11 +1,13 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Mambda.Widgets.Settings (
     State,
     initState,
     render,
     handleEvent,
     attributeMap,
+    Settings (..),
+    WorldSize (..),
+    KeyBindings (..),
+    defaultSettings,
 ) where
 
 import Prelude
@@ -25,7 +27,6 @@ import Data.Text qualified as Text
 import GHC.Generics (Generic)
 import Lens.Micro
 import Lens.Micro.Extras
-import Mambda.Game (PlayerInput (..), down, left, right, up)
 
 data Setting n ev = Setting
     { label :: Text.Text
@@ -51,13 +52,15 @@ data KeyBindings = KeyBindings
     }
     deriving stock (Generic)
 
+defaultSettings :: Settings
+defaultSettings = Settings Small defaultKeyBindings
+
 defaultKeyBindings :: KeyBindings
 defaultKeyBindings =
     KeyBindings Vty.KUp Vty.KDown Vty.KLeft Vty.KRight
 
 data Settings = Settings
     { worldSize :: WorldSize
-    , snakeSpeed :: Integer
     , keyBindings :: KeyBindings
     }
     deriving stock (Generic)
@@ -132,18 +135,17 @@ initState =
         , settings =
             LZ.fromNonEmpty $
                 Setting "World Size" (selectPicker Text.show (Small :| [Medium, Large]) #worldSize)
-                    :| [ Setting "Snake speed" (selectPicker Text.show (1 :| [2 .. 10]) #snakeSpeed)
-                       , Setting "Up" (keyPicker Vty.KUp (#keyBindings . #snakeUp))
+                    :| [ Setting "Up" (keyPicker Vty.KUp (#keyBindings . #snakeUp))
                        , Setting "Down" (keyPicker Vty.KDown (#keyBindings . #snakeDown))
                        , Setting "Left" (keyPicker Vty.KLeft (#keyBindings . #snakeLeft))
                        , Setting "Right" (keyPicker Vty.KRight (#keyBindings . #snakeRight))
                        ]
-        , opt = Settings Small 3 defaultKeyBindings
+        , opt = defaultSettings
         }
 
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n (State n e) (Maybe Settings)
 handleEvent (Brick.AppEvent _) = do
-    Brick.modify $ #tick %~ (+ 1)
+    Brick.modify $ #tick +~ 1
     pure Nothing
 handleEvent ev = do
     handled <- eventHandler ev

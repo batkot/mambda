@@ -34,12 +34,12 @@ instance MainMenu.MenuItem MenuItem where
 
 data MambdaEvent = Tick
 
-mainMenu :: NonEmpty MenuItem
-mainMenu =
-    MenuItem{label = "Start Game", transitionTo = Game Game.initState}
+mainMenu :: Settings.Settings -> NonEmpty MenuItem
+mainMenu settings =
+    MenuItem{label = "Start Game", transitionTo = Game $ Game.initState settings}
         :| [ MenuItem{label = "Settings", transitionTo = Settings Settings.initState}
-           , MenuItem{label = "Scoreboard", transitionTo = Game Game.initState}
-           , MenuItem{label = "Quit", transitionTo = Game Game.initState}
+           , MenuItem{label = "Scoreboard", transitionTo = Game $ Game.initState settings}
+           , MenuItem{label = "Quit", transitionTo = Game $ Game.initState settings}
            ]
 
 main :: IO ()
@@ -49,7 +49,7 @@ main = do
         BChan.writeBChan tickChan Tick
         Concurrent.threadDelay 250_000
     initVty <- buildVty
-    void $ Brick.customMain initVty buildVty (Just tickChan) app $ Menu $ MainMenu.initState mainMenu
+    void $ Brick.customMain initVty buildVty (Just tickChan) app $ Menu $ MainMenu.initState $ mainMenu Settings.defaultSettings
   where
     buildVty = VtyX.mkVty Vty.defaultConfig
     app :: Brick.App MambdaCliState MambdaEvent MambdaCliResource
@@ -82,7 +82,7 @@ main = do
                 Brick.put $ Game newGameState
             Settings settingsState -> do
                 (newSettingsState, done) <- Brick.nestEventM settingsState (Settings.handleEvent ev)
-                let newState = if Maybe.isJust done then Menu (MainMenu.initState mainMenu) else Settings newSettingsState
+                let newState = maybe (Settings newSettingsState) (Menu . MainMenu.initState . mainMenu) done
                 Brick.put newState
 
     drawUI :: MambdaCliState -> [Brick.Widget MambdaCliResource]

@@ -50,7 +50,7 @@ logo offset =
 
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n (State a) (Maybe a)
 handleEvent (Brick.AppEvent _) = do
-    Brick.modify $ #tick %~ (+ 1)
+    Brick.modify $ #tick +~ 1
     pure Nothing
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) = do
     Brick.modify $ #menuItems %~ next
