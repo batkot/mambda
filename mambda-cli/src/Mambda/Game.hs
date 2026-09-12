@@ -15,6 +15,7 @@ module Mambda.Game (
     left,
     right,
     control,
+    PlayerId (..),
 ) where
 
 import Prelude hiding (init)
@@ -23,6 +24,8 @@ import Aztecs qualified
 import Aztecs.ECS.World qualified as World
 import Control.Monad
 import Data.Bifunctor
+import Data.Foldable (traverse_)
+import Data.List.NonEmpty hiding (init)
 import Data.Typeable (Typeable)
 import Data.Vector qualified as Vector
 import Data.Word (Word8)
@@ -46,11 +49,17 @@ data Glyph
 
 type Space = V2 Integer
 
+data PlayerId = One | Two
+    deriving stock (Show, Eq)
+
 newtype World = World Space
     deriving stock (Show)
     deriving anyclass (Aztecs.Component m)
 
-newtype SnakeHead = SnakeHead {length :: Word8}
+data SnakeHead = SnakeHead
+    { playerId :: PlayerId
+    , length :: Word8
+    }
     deriving stock (Show)
     deriving anyclass (Aztecs.Component m)
 
@@ -89,13 +98,25 @@ instance (Monad m) => Aztecs.Component m Dead where
 instance (Monad m) => Aztecs.Component m Grow where
     componentOnInsert _ (Grow (_, True)) = pure ()
     componentOnInsert entity (Grow (size, False)) = do
-        void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\(SnakeHead x) -> SnakeHead $ x + fromInteger size)
-        void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\(Lifetime x) -> Lifetime $ x + size)
+        headMaybe <- Aztecs.lookup @_ @SnakeHead entity
+        forM_ headMaybe $ \(SnakeHead player score) ->
+            Aztecs.insertUntracked entity $ Aztecs.bundle $ SnakeHead player $ score + fromInteger size
+        snakeSegments <- maybe mempty Aztecs.unChildren <$> Aztecs.lookup entity
+        let bumpLifetime entityId = do
+                currentLifetime <- maybe 0 (\(Lifetime x) -> x) <$> Aztecs.lookup entityId
+                Aztecs.insertUntracked entityId $ Aztecs.bundle $ Lifetime $ currentLifetime + fromInteger size
+        traverse_ bumpLifetime snakeSegments
         Aztecs.insert entity $ Aztecs.bundle (Grow (size, True))
     componentOnChange _ _ (Grow (_, True)) = pure ()
     componentOnChange entity _ (Grow (size, False)) = do
-        void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\(SnakeHead x) -> SnakeHead $ x + fromInteger size)
-        void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\(Lifetime x) -> Lifetime $ x + size)
+        headMaybe <- Aztecs.lookup @_ @SnakeHead entity
+        forM_ headMaybe $ \(SnakeHead player score) ->
+            Aztecs.insertUntracked entity $ Aztecs.bundle $ SnakeHead player $ score + fromInteger size
+        snakeSegments <- maybe mempty Aztecs.unChildren <$> Aztecs.lookup entity
+        let bumpLifetime entityId = do
+                currentLifetime <- maybe 0 (\(Lifetime x) -> x) <$> Aztecs.lookup entityId
+                Aztecs.insertUntracked entityId $ Aztecs.bundle $ Lifetime $ currentLifetime + fromInteger size
+        traverse_ bumpLifetime snakeSegments
         Aztecs.insert entity $ Aztecs.bundle (Grow (size, True))
 
 data Collision m = forall a. (Aztecs.Component m a) => Collision a
@@ -120,8 +141,7 @@ instance (Monad m, Typeable m) => Aztecs.Component m Eaten where
             [] -> pure ()
             ((Position x) : _) -> Aztecs.spawn_ $ apple x
 
-newtype PlayerInput
-    = ChangeDirection SnakeDirection
+data PlayerInput = ChangeDirection PlayerId SnakeDirection
 
 up :: SnakeDirection
 up = SnakeDirection $ V2 (-1) 0
@@ -143,19 +163,25 @@ data WorldSettings = WorldSettings
     , height :: Word8
     }
 
-snakeHead :: (Monad m) => Aztecs.BundleT m
-snakeHead =
-    Aztecs.bundle (SnakeHead 3)
-        <> Aztecs.bundle (Position (V2 1 1))
+snakeHead :: (Monad m) => PlayerId -> Aztecs.BundleT m
+snakeHead playerId =
+    Aztecs.bundle (SnakeHead playerId 3)
+        <> Aztecs.bundle startPos
         <> Aztecs.bundle (Velocity (V2 0 0))
         <> Aztecs.bundle (Renderable Snake)
+  where
+    startPos =
+        case playerId of
+            One -> Position (V2 1 1)
+            Two -> Position (V2 19 19)
 
-snakeSegment :: forall m. (Monad m, Typeable m) => Space -> Ticks -> Aztecs.BundleT m
-snakeSegment pos lifetime =
+snakeSegment :: forall m. (Monad m, Typeable m) => Aztecs.EntityID -> Space -> Ticks -> Aztecs.BundleT m
+snakeSegment snakeHeadId pos lifetime =
     Aztecs.bundle (Position pos)
         <> Aztecs.bundle (Renderable SnakeSegment)
         <> Aztecs.bundle (Collidable (Collision @m Dead, Collision @m NoOp))
         <> Aztecs.bundle (Lifetime lifetime)
+        <> Aztecs.bundle (Aztecs.Parent snakeHeadId)
 
 apple :: forall m. (Monad m, Typeable m) => Space -> Aztecs.BundleT m
 apple pos =
@@ -166,9 +192,9 @@ apple pos =
 wall :: forall m. (Monad m, Typeable m) => Space -> Aztecs.Access m ()
 wall pos = void $ Aztecs.spawn $ Aztecs.bundle (Position pos) <> Aztecs.bundle (Collidable (Collision @m Dead, Collision @m NoOp)) <> Aztecs.bundle (Renderable Wall)
 
-sampleWorld :: forall m. (Monad m, Typeable m) => WorldSettings -> Aztecs.Access m ()
-sampleWorld WorldSettings{width, height} = do
-    void $ Aztecs.spawn snakeHead
+sampleWorld :: forall m. (Monad m, Typeable m) => NonEmpty PlayerId -> WorldSettings -> Aztecs.Access m ()
+sampleWorld players WorldSettings{width, height} = do
+    forM_ players $ Aztecs.spawn . snakeHead
     void $ Aztecs.spawn $ apple (V2 1 5)
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable (Collision @m (Position (V2 2 2)), Collision @m NoOp)) <> Aztecs.bundle (Renderable Portal)
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 19)) <> Aztecs.bundle (Collidable (Collision @m (Grow (-5, False)), Collision @m Dead)) <> Aztecs.bundle (Renderable Poison)
@@ -198,15 +224,15 @@ sampleWorld WorldSettings{width, height} = do
         , or [h == -1, h == heightInt, w == -1, w == widthInt]
         ]
 
-init :: (Monad m, Typeable m) => WorldSettings -> m (State m)
-init worldSettings = State . snd <$> Aztecs.runAccess (sampleWorld worldSettings) World.empty
+init :: (Monad m, Typeable m) => NonEmpty PlayerId -> WorldSettings -> m (State m)
+init players worldSettings = State . snd <$> Aztecs.runAccess (sampleWorld players worldSettings) World.empty
 
 gameStep :: (Monad m, Typeable m) => Aztecs.Access m Bool
 gameStep = do
+    lifetimeSystem
     snakeGhostSystem
     moveSystem
     collisionSystem
-    lifetimeSystem
     endGameSystem
 
 moveSystem :: (Monad m) => Aztecs.Access m ()
@@ -216,8 +242,8 @@ moveSystem = void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMapWith move A
 
 snakeGhostSystem :: (Monad m, Typeable m) => Aztecs.Access m ()
 snakeGhostSystem = do
-    snakes <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(_, _, Velocity v) -> v /= V2 0 0) $ (,,) <$> Aztecs.query <*> Aztecs.query <*> Aztecs.query
-    Vector.forM_ snakes $ \(SnakeHead l, Position pos, _) -> Aztecs.spawn_ $ snakeSegment pos $ toInteger l
+    snakes <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(_, _, _, Velocity v) -> v /= V2 0 0) $ (,,,) <$> Aztecs.entity <*> Aztecs.query <*> Aztecs.query <*> Aztecs.query
+    Vector.forM_ snakes $ \(snakeEntityId, SnakeHead _ l, Position pos, _) -> Aztecs.spawn_ $ snakeSegment snakeEntityId pos $ toInteger l
 
 lifetimeSystem :: (Monad m) => Aztecs.Access m ()
 lifetimeSystem = do
@@ -243,13 +269,13 @@ step :: (Monad m, Typeable m) => State m -> m (Bool, State m)
 step (State world) = second State <$> Aztecs.runAccess gameStep world
 
 control :: (Monad m) => PlayerInput -> State m -> m (State m)
-control (ChangeDirection (SnakeDirection dir)) (State world) = State . snd <$> Aztecs.runAccess control' world
+control (ChangeDirection playerId (SnakeDirection dir)) (State world) = State . snd <$> Aztecs.runAccess control' world
   where
     mapVel (Velocity currentVel)
         | currentVel + dir == V2 0 0 = Velocity currentVel
         | otherwise = Velocity dir
     control' =
-        Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.queryMap mapVel
+        Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(SnakeHead pId _, _) -> pId == playerId) ((,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.queryMap mapVel)
 
 laser :: (Monad m, Typeable m) => State m -> m (State m)
 laser (State w) = State . snd <$> Aztecs.runAccess doLaser w

@@ -26,6 +26,7 @@ import Graphics.Vty qualified as Vty
 import Lens.Micro ((%~), (&), (.~), (^.))
 import Lens.Micro.Extras
 
+import Data.List.NonEmpty
 import Data.Map qualified as Map
 import Mambda.Widgets.Settings qualified as S
 
@@ -54,7 +55,7 @@ renderGlyph Game.Poison = Brick.withAttr poisonAttr $ Brick.str "██"
 renderGlyph Game.Laser = Brick.withAttr laserAttr $ Brick.str "╪╪"
 
 initState :: S.Settings -> State
-initState settings = State (runIdentity $ Game.init worldSettings) Running keyBindings settings
+initState settings = State (runIdentity $ Game.init (Game.One :| [Game.Two]) worldSettings) Running keyBindings settings
   where
     worldSettings = worldSizeToSettings $ settings ^. #worldSize
     keyBindings = mkKeyBindings $ settings ^. #keyBindings
@@ -68,10 +69,14 @@ mkKeyBindings :: S.KeyBindings -> KeyMap
 mkKeyBindings keys =
     KeyMap $
         Map.fromList
-            [ (keys ^. #snakeUp, Game.ChangeDirection Game.up)
-            , (keys ^. #snakeDown, Game.ChangeDirection Game.down)
-            , (keys ^. #snakeLeft, Game.ChangeDirection Game.left)
-            , (keys ^. #snakeRight, Game.ChangeDirection Game.right)
+            [ (keys ^. #snakeUp, Game.ChangeDirection Game.One Game.up)
+            , (keys ^. #snakeDown, Game.ChangeDirection Game.One Game.down)
+            , (keys ^. #snakeLeft, Game.ChangeDirection Game.One Game.left)
+            , (keys ^. #snakeRight, Game.ChangeDirection Game.One Game.right)
+            , (Vty.KChar 'w', Game.ChangeDirection Game.Two Game.up)
+            , (Vty.KChar 's', Game.ChangeDirection Game.Two Game.down)
+            , (Vty.KChar 'a', Game.ChangeDirection Game.Two Game.left)
+            , (Vty.KChar 'd', Game.ChangeDirection Game.Two Game.right)
             ]
 
 boolToState :: Bool -> GameState
