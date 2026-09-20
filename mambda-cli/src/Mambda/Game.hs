@@ -100,22 +100,22 @@ instance (Monad m) => Aztecs.Component m Grow where
     componentOnInsert entity (Grow (size, False)) = do
         headMaybe <- Aztecs.lookup @_ @SnakeHead entity
         forM_ headMaybe $ \(SnakeHead player score) ->
-            Aztecs.insertUntracked entity $ Aztecs.bundle $ SnakeHead player $ score + fromInteger size
+            Aztecs.insertUntracked entity $ Aztecs.bundle $ SnakeHead player $ max 1 $ score + fromInteger size
         snakeSegments <- maybe mempty Aztecs.unChildren <$> Aztecs.lookup entity
         let bumpLifetime entityId = do
                 currentLifetime <- maybe 0 (\(Lifetime x) -> x) <$> Aztecs.lookup entityId
-                Aztecs.insertUntracked entityId $ Aztecs.bundle $ Lifetime $ currentLifetime + fromInteger size
+                Aztecs.insertUntracked entityId $ Aztecs.bundle $ Lifetime $ max 1 $ currentLifetime + fromInteger size
         traverse_ bumpLifetime snakeSegments
         Aztecs.insert entity $ Aztecs.bundle (Grow (size, True))
     componentOnChange _ _ (Grow (_, True)) = pure ()
     componentOnChange entity _ (Grow (size, False)) = do
         headMaybe <- Aztecs.lookup @_ @SnakeHead entity
         forM_ headMaybe $ \(SnakeHead player score) ->
-            Aztecs.insertUntracked entity $ Aztecs.bundle $ SnakeHead player $ score + fromInteger size
+            Aztecs.insertUntracked entity $ Aztecs.bundle $ SnakeHead player $ max 1 $ score + fromInteger size
         snakeSegments <- maybe mempty Aztecs.unChildren <$> Aztecs.lookup entity
         let bumpLifetime entityId = do
                 currentLifetime <- maybe 0 (\(Lifetime x) -> x) <$> Aztecs.lookup entityId
-                Aztecs.insertUntracked entityId $ Aztecs.bundle $ Lifetime $ currentLifetime + fromInteger size
+                Aztecs.insertUntracked entityId $ Aztecs.bundle $ Lifetime $ max 1 $ currentLifetime + fromInteger size
         traverse_ bumpLifetime snakeSegments
         Aztecs.insert entity $ Aztecs.bundle (Grow (size, True))
 
@@ -247,7 +247,7 @@ snakeGhostSystem = do
 
 lifetimeSystem :: (Monad m) => Aztecs.Access m ()
 lifetimeSystem = do
-    dead <- fmap (Vector.filter (isDead . snd)) $ Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.entity <*> Aztecs.queryMap (\(Lifetime x) -> Lifetime $ x - 1)
+    dead <- fmap (Vector.filter (isDead . snd)) $ Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.entity <*> Aztecs.queryMap (\(Lifetime x) -> Lifetime $ max 0 $ x - 1)
     Vector.forM_ dead $ \(entityId, _) -> Aztecs.despawn entityId
 
 collisionSystem :: forall m. (Monad m, Typeable m) => Aztecs.Access m ()

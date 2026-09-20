@@ -36,6 +36,7 @@ data GameState = Running | Paused | Finished
 data State = State
     { game :: Game.State Identity
     , state :: GameState
+    , currentFrame :: Game.Render
     , keyBindings :: KeyMap
     , settings :: S.Settings
     }
@@ -55,8 +56,17 @@ renderGlyph Game.Poison = Brick.withAttr poisonAttr $ Brick.str "██"
 renderGlyph Game.Laser = Brick.withAttr laserAttr $ Brick.str "╪╪"
 
 initState :: S.Settings -> State
-initState settings = State (runIdentity $ Game.init (Game.One :| [Game.Two]) worldSettings) Running keyBindings settings
+initState settings =
+    State
+        { game
+        , state = Running
+        , currentFrame
+        , keyBindings
+        , settings
+        }
   where
+    game = runIdentity $ Game.init (Game.One :| [Game.Two]) worldSettings
+    currentFrame = runIdentity $ Game.render game
     worldSettings = worldSizeToSettings $ settings ^. #worldSize
     keyBindings = mkKeyBindings $ settings ^. #keyBindings
 
@@ -88,9 +98,10 @@ handleEvent (Brick.AppEvent _) = do
     paused <- Brick.gets $ (==) Paused . view #state
     unless paused $ Brick.modify $ \s ->
         let (state, game) = runIdentity $ first boolToState <$> Game.step (s ^. #game)
-         in s & #game .~ game & #state .~ state
+            frame = runIdentity $ Game.render game
+         in s & #game .~ game & #state .~ state & #currentFrame .~ frame
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) =
-    Brick.modify $ \s@(State _ r _ settings) -> if r == Finished then initState settings else s
+    Brick.modify $ \s@(State _ r _ _ settings) -> if r == Finished then initState settings else s
 handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'p') [])) = do
     gameState <- Brick.gets $ view #state
     case gameState of
@@ -107,20 +118,19 @@ handleEvent (Brick.VtyEvent (Vty.EvKey k [])) = do
 handleEvent _ = pure ()
 
 render :: State -> Brick.Widget n
-render (State s status _ _) =
+render (State s status (Game.Render frame) _ _) =
     Brick.center $
         Brick.vCenter $
             Brick.border (Table.renderTable frameTable)
                 <=> Table.renderTable (borderlessTable $ Table.table [[Brick.str "SCORE", statusWidget]])
   where
-    Game.Render r = runIdentity $ Game.render s
     statusWidget = Brick.str $ case status of
         Finished -> "GAME OVER"
         Paused -> "PAUSED"
         Running -> ""
     frameTable = borderlessTable $ Table.table worldGrid
     borderlessTable = Table.columnBorders False . Table.rowBorders False . Table.surroundingBorder False
-    worldGrid = Vector.toList $ Vector.toList . fmap renderGlyph <$> r
+    worldGrid = Vector.toList $ Vector.toList . fmap renderGlyph <$> frame
 
 attributeMap :: Brick.AttrMap
 attributeMap =
