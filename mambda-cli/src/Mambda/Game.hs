@@ -100,7 +100,7 @@ instance (Monad m) => Aztecs.Component m Grow where
     componentOnInsert entity (Grow (size, False)) = do
         headMaybe <- Aztecs.lookup @_ @SnakeHead entity
         forM_ headMaybe $ \(SnakeHead player score) ->
-            Aztecs.insertUntracked entity $ Aztecs.bundle $ SnakeHead player $ max 1 $ score + fromInteger size
+            Aztecs.insertUntracked entity $ Aztecs.bundle $ SnakeHead player $ fromInteger $ max 1 $ toInteger score + size
         snakeSegments <- maybe mempty Aztecs.unChildren <$> Aztecs.lookup entity
         let bumpLifetime entityId = do
                 currentLifetime <- maybe 0 (\(Lifetime x) -> x) <$> Aztecs.lookup entityId
@@ -111,7 +111,7 @@ instance (Monad m) => Aztecs.Component m Grow where
     componentOnChange entity _ (Grow (size, False)) = do
         headMaybe <- Aztecs.lookup @_ @SnakeHead entity
         forM_ headMaybe $ \(SnakeHead player score) ->
-            Aztecs.insertUntracked entity $ Aztecs.bundle $ SnakeHead player $ max 1 $ score + fromInteger size
+            Aztecs.insertUntracked entity $ Aztecs.bundle $ SnakeHead player $ fromInteger $ max 1 $ toInteger score + size
         snakeSegments <- maybe mempty Aztecs.unChildren <$> Aztecs.lookup entity
         let bumpLifetime entityId = do
                 currentLifetime <- maybe 0 (\(Lifetime x) -> x) <$> Aztecs.lookup entityId
