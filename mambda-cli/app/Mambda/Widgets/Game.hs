@@ -109,7 +109,10 @@ handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'p') [])) = do
         Paused -> Brick.modify $ #state .~ Running
         Running -> Brick.modify $ #state .~ Paused
 handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar ' ') [])) =
-    Brick.modify $ #game %~ runIdentity . Game.laser
+    Brick.modify $ \s ->
+        let game = runIdentity . Game.laser $ s ^. #game
+            frame = runIdentity . Game.render $ game
+         in s & #game .~ game & #currentFrame .~ frame
 handleEvent (Brick.VtyEvent (Vty.EvKey k [])) = do
     KeyMap keyMap <- Brick.gets $ view #keyBindings
     case Map.lookup k keyMap of
