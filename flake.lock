@@ -1,5 +1,22 @@
 {
   "nodes": {
+    "aztecs": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1790538634,
+        "narHash": "sha256-kt3fXkF9qo5t2hAGyQtYlJhw7S+rDaZ7Hc12/babQiQ=",
+        "owner": "batkot",
+        "repo": "aztecs",
+        "rev": "e8ce77a6efa704b56626b1b151d8e9981c1e95c4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "batkot",
+        "ref": "archetype-bug",
+        "repo": "aztecs",
+        "type": "github"
+      }
+    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -73,6 +90,7 @@
     },
     "root": {
       "inputs": {
+        "aztecs": "aztecs",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs",
         "pre-commit-hooks": "pre-commit-hooks"

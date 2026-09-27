@@ -10,6 +10,10 @@
         nixpkgs.follows = "nixpkgs";
       };
     };
+    aztecs = {
+      url = "github:batkot/aztecs?ref=archetype-bug";
+      flake = false;
+    };
   };
 
   outputs = {
@@ -17,6 +21,7 @@
     nixpkgs,
     flake-utils,
     pre-commit-hooks,
+    aztecs,
   }:
     flake-utils.lib.eachDefaultSystem (
       system: let
@@ -29,6 +34,7 @@
           overrides = ghcSelf: ghcSuper: {
             generic-optics = pkgs.haskell.lib.dontCheck (ghcSuper.generic-optics);
             mambda-cli = ghcSuper.callCabal2nix "mambda-cli" ./mambda-cli {};
+            aztecs = ghcSuper.callCabal2nix "aztecs" aztecs.outPath {};
           };
         };
         pre-commit = pre-commit-hooks.lib.${system}.run {
