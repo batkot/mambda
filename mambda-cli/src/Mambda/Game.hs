@@ -6,10 +6,10 @@ module Mambda.Game (
     init,
     step,
     render,
-    laser,
     Render (..),
     Glyph (..),
     PlayerInput (..),
+    PlayerControls (..),
     up,
     down,
     left,
@@ -141,7 +141,11 @@ instance (Monad m, Typeable m) => Aztecs.Component m Eaten where
             [] -> pure ()
             ((Position x) : _) -> Aztecs.spawn_ $ apple x
 
-data PlayerInput = ChangeDirection PlayerId SnakeDirection
+data PlayerControls
+    = ChangeDirection SnakeDirection
+    | Special
+
+newtype PlayerInput = PlayerInput (PlayerId, PlayerControls)
 
 up :: SnakeDirection
 up = SnakeDirection $ V2 (-1) 0
@@ -268,21 +272,19 @@ endGameSystem = fmap Vector.null $ Aztecs.system $ Aztecs.runQuery $ Aztecs.quer
 step :: (Monad m, Typeable m) => State m -> m (Bool, State m)
 step (State world) = second State <$> Aztecs.runAccess gameStep world
 
-control :: (Monad m) => PlayerInput -> State m -> m (State m)
-control (ChangeDirection playerId (SnakeDirection dir)) (State world) = State . snd <$> Aztecs.runAccess control' world
+control :: (Monad m, Typeable m) => PlayerInput -> State m -> m (State m)
+control (PlayerInput (playerId, ChangeDirection (SnakeDirection dir))) (State world) = State . snd <$> Aztecs.runAccess control' world
   where
     mapVel (Velocity currentVel)
         | currentVel + dir == V2 0 0 = Velocity currentVel
         | otherwise = Velocity dir
     control' =
         Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(SnakeHead pId _, _) -> pId == playerId) ((,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.queryMap mapVel)
-
-laser :: (Monad m, Typeable m) => State m -> m (State m)
-laser (State w) = State . snd <$> Aztecs.runAccess doLaser w
+control (PlayerInput (pId, Special)) (State world) = State . snd <$> Aztecs.runAccess doLaser world
   where
     doLaser = do
         (World (V2 width height)) <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
-        snakes <- Aztecs.system $ Aztecs.runQuery $ (,,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.query @_ @Position <*> Aztecs.query @_ @Velocity
+        snakes <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(SnakeHead{playerId}, _, _) -> playerId == pId) ((,,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.query @_ @Position <*> Aztecs.query @_ @Velocity)
         forM_ snakes $ \(_, Position (V2 px py), Velocity (V2 vx vy)) ->
             forM_ (Vector.generate (fromInteger $ max width height) (\x -> V2 (max 0 (min (width - 1) (px + toInteger x * vx))) (max 0 (min (height - 1) (py + toInteger x * vy))))) $ \laserPos -> do
                 Aztecs.spawn_ $

@@ -37,6 +37,7 @@ data State = State
     { game :: Game.State Identity
     , state :: GameState
     , currentFrame :: Game.Render
+    , inputQueue :: [Game.PlayerInput]
     , keyBindings :: KeyMap
     , settings :: S.Settings
     }
@@ -60,6 +61,7 @@ initState settings =
     State
         { game
         , state = Running
+        , inputQueue = mempty
         , currentFrame
         , keyBindings
         , settings
@@ -79,14 +81,16 @@ mkKeyBindings :: S.KeyBindings -> KeyMap
 mkKeyBindings keys =
     KeyMap $
         Map.fromList
-            [ (keys ^. #snakeUp, Game.ChangeDirection Game.One Game.up)
-            , (keys ^. #snakeDown, Game.ChangeDirection Game.One Game.down)
-            , (keys ^. #snakeLeft, Game.ChangeDirection Game.One Game.left)
-            , (keys ^. #snakeRight, Game.ChangeDirection Game.One Game.right)
-            , (Vty.KChar 'w', Game.ChangeDirection Game.Two Game.up)
-            , (Vty.KChar 's', Game.ChangeDirection Game.Two Game.down)
-            , (Vty.KChar 'a', Game.ChangeDirection Game.Two Game.left)
-            , (Vty.KChar 'd', Game.ChangeDirection Game.Two Game.right)
+            [ (keys ^. #snakeUp, Game.PlayerInput (Game.One, Game.ChangeDirection Game.up))
+            , (keys ^. #snakeDown, Game.PlayerInput (Game.One, Game.ChangeDirection Game.down))
+            , (keys ^. #snakeLeft, Game.PlayerInput (Game.One, Game.ChangeDirection Game.left))
+            , (keys ^. #snakeRight, Game.PlayerInput (Game.One, Game.ChangeDirection Game.right))
+            , (Vty.KChar ' ', Game.PlayerInput (Game.One, Game.Special))
+            , (Vty.KChar 'w', Game.PlayerInput (Game.Two, Game.ChangeDirection Game.up))
+            , (Vty.KChar 's', Game.PlayerInput (Game.Two, Game.ChangeDirection Game.down))
+            , (Vty.KChar 'a', Game.PlayerInput (Game.Two, Game.ChangeDirection Game.left))
+            , (Vty.KChar 'd', Game.PlayerInput (Game.Two, Game.ChangeDirection Game.right))
+            , (Vty.KChar 'x', Game.PlayerInput (Game.Two, Game.Special))
             ]
 
 boolToState :: Bool -> GameState
@@ -101,33 +105,32 @@ handleEvent (Brick.AppEvent _) = do
             frame = runIdentity $ Game.render game
          in s & #game .~ game & #state .~ state & #currentFrame .~ frame
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) =
-    Brick.modify $ \s@(State _ r _ _ settings) -> if r == Finished then initState settings else s
+    Brick.modify $ \s@(State _ r _ _ _ settings) -> if r == Finished then initState settings else s
 handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'p') [])) = do
     gameState <- Brick.gets $ view #state
     case gameState of
         Finished -> pure ()
         Paused -> Brick.modify $ #state .~ Running
         Running -> Brick.modify $ #state .~ Paused
-handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar ' ') [])) =
-    Brick.modify $ \s ->
-        let game = runIdentity . Game.laser $ s ^. #game
-            frame = runIdentity . Game.render $ game
-         in s & #game .~ game & #currentFrame .~ frame
 handleEvent (Brick.VtyEvent (Vty.EvKey k [])) = do
     KeyMap keyMap <- Brick.gets $ view #keyBindings
     case Map.lookup k keyMap of
         Nothing -> pure ()
-        Just input -> Brick.modify $ #game %~ (runIdentity . Game.control input)
+        Just input ->
+            Brick.modify $ \s ->
+                let game = runIdentity $ Game.control input (s ^. #game)
+                    frame = runIdentity $ Game.render game
+                 in s & #game .~ game & #currentFrame .~ frame
 handleEvent _ = pure ()
 
 render :: State -> Brick.Widget n
-render (State s status (Game.Render frame) _ _) =
+render State{state, currentFrame = (Game.Render frame)} =
     Brick.center $
         Brick.vCenter $
             Brick.border (Table.renderTable frameTable)
                 <=> Table.renderTable (borderlessTable $ Table.table [[Brick.str "SCORE", statusWidget]])
   where
-    statusWidget = Brick.str $ case status of
+    statusWidget = Brick.str $ case state of
         Finished -> "GAME OVER"
         Paused -> "PAUSED"
         Running -> ""
