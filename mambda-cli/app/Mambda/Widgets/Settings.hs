@@ -6,7 +6,8 @@ module Mambda.Widgets.Settings (
     attributeMap,
     Settings (..),
     WorldSize (..),
-    KeyBindings (..),
+    KeyBindings,
+    PlayerBindings (..),
     defaultSettings,
 ) where
 
@@ -27,6 +28,7 @@ import Data.Text qualified as Text
 import GHC.Generics (Generic)
 import Lens.Micro
 import Lens.Micro.Extras
+import Lens.Micro.GHC ()
 
 data Setting n ev = Setting
     { label :: Text.Text
@@ -45,6 +47,12 @@ data WorldSize = Small | Medium | Large
     deriving (Show, Ord, Eq, Bounded, Enum)
 
 data KeyBindings = KeyBindings
+    { playerOne :: PlayerBindings
+    , playerTwo :: PlayerBindings
+    }
+    deriving stock (Generic)
+
+data PlayerBindings = PlayerBindings
     { snakeUp :: Vty.Key
     , snakeDown :: Vty.Key
     , snakeLeft :: Vty.Key
@@ -58,7 +66,10 @@ defaultSettings = Settings Small defaultKeyBindings
 
 defaultKeyBindings :: KeyBindings
 defaultKeyBindings =
-    KeyBindings Vty.KUp Vty.KDown Vty.KLeft Vty.KRight Vty.KDel
+    KeyBindings
+        { playerOne = PlayerBindings Vty.KUp Vty.KDown Vty.KLeft Vty.KRight Vty.KDel
+        , playerTwo = PlayerBindings (Vty.KChar 'w') (Vty.KChar 's') (Vty.KChar 'a') (Vty.KChar 'd') (Vty.KChar ' ')
+        }
 
 data Settings = Settings
     { worldSize :: WorldSize
@@ -67,7 +78,7 @@ data Settings = Settings
     deriving stock (Generic)
 
 data SettingsPicker n ev = forall setting internal. SettingsPicker
-    { lens :: Lens' Settings setting
+    { lens :: ASetter' Settings setting
     , hmm :: internal -> setting
     , state :: internal
     , render :: Bool -> internal -> Brick.Widget n
@@ -136,11 +147,16 @@ initState =
         , settings =
             LZ.fromNonEmpty $
                 Setting "World Size" (selectPicker Text.show (Small :| [Medium, Large]) #worldSize)
-                    :| [ Setting "Up" (keyPicker Vty.KUp (#keyBindings . #snakeUp))
-                       , Setting "Down" (keyPicker Vty.KDown (#keyBindings . #snakeDown))
-                       , Setting "Left" (keyPicker Vty.KLeft (#keyBindings . #snakeLeft))
-                       , Setting "Right" (keyPicker Vty.KRight (#keyBindings . #snakeRight))
-                       , Setting "Special" (keyPicker Vty.KDel (#keyBindings . #special))
+                    :| [ Setting "Up" (keyPicker Vty.KUp (#keyBindings . #playerOne . #snakeUp))
+                       , Setting "Down" (keyPicker Vty.KDown (#keyBindings . #playerOne . #snakeDown))
+                       , Setting "Left" (keyPicker Vty.KLeft (#keyBindings . #playerOne . #snakeLeft))
+                       , Setting "Right" (keyPicker Vty.KRight (#keyBindings . #playerOne . #snakeRight))
+                       , Setting "Special" (keyPicker Vty.KDel (#keyBindings . #playerOne . #special))
+                       , Setting "Up" (keyPicker Vty.KUp (#keyBindings . #playerTwo . #snakeUp))
+                       , Setting "Down" (keyPicker Vty.KDown (#keyBindings . #playerTwo . #snakeDown))
+                       , Setting "Left" (keyPicker Vty.KLeft (#keyBindings . #playerTwo . #snakeLeft))
+                       , Setting "Right" (keyPicker Vty.KRight (#keyBindings . #playerTwo . #snakeRight))
+                       , Setting "Special" (keyPicker Vty.KDel (#keyBindings . #playerTwo . #special))
                        ]
         , opt = defaultSettings
         }

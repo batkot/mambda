@@ -65,6 +65,7 @@ executables:
     - generic-lens
     - mambda-cli
     - microlens
+    - microlens-ghc
     - text
     - vector
     - vty

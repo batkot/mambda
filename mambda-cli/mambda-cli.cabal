@@ -75,6 +75,7 @@ executable mambda
     , linear
     , mambda-cli
     , microlens
+    , microlens-ghc
     , text
     , vector
     , vty

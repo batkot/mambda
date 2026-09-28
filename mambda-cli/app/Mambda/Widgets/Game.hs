@@ -23,7 +23,7 @@ import Data.Generics.Labels ()
 import Data.Vector qualified as Vector
 import GHC.Generics (Generic)
 import Graphics.Vty qualified as Vty
-import Lens.Micro ((%~), (&), (.~), (^.))
+import Lens.Micro ((&), (.~), (^.))
 import Lens.Micro.Extras
 
 import Data.List.NonEmpty
@@ -78,19 +78,16 @@ worldSizeToSettings S.Medium = Game.WorldSettings 50 30
 worldSizeToSettings S.Large = Game.WorldSettings 90 60
 
 mkKeyBindings :: S.KeyBindings -> KeyMap
-mkKeyBindings keys =
-    KeyMap $
+mkKeyBindings bindings = KeyMap $ foldMap playerBindings [(Game.One, bindings ^. #playerOne), (Game.Two, bindings ^. #playerTwo)]
+  where
+    playerBindings :: (Game.PlayerId, S.PlayerBindings) -> Map.Map Vty.Key Game.PlayerInput
+    playerBindings (playerId, keys) =
         Map.fromList
-            [ (keys ^. #snakeUp, Game.PlayerInput (Game.One, Game.ChangeDirection Game.up))
-            , (keys ^. #snakeDown, Game.PlayerInput (Game.One, Game.ChangeDirection Game.down))
-            , (keys ^. #snakeLeft, Game.PlayerInput (Game.One, Game.ChangeDirection Game.left))
-            , (keys ^. #snakeRight, Game.PlayerInput (Game.One, Game.ChangeDirection Game.right))
-            , (keys ^. #special, Game.PlayerInput (Game.One, Game.Special))
-            , (Vty.KChar 'w', Game.PlayerInput (Game.Two, Game.ChangeDirection Game.up))
-            , (Vty.KChar 's', Game.PlayerInput (Game.Two, Game.ChangeDirection Game.down))
-            , (Vty.KChar 'a', Game.PlayerInput (Game.Two, Game.ChangeDirection Game.left))
-            , (Vty.KChar 'd', Game.PlayerInput (Game.Two, Game.ChangeDirection Game.right))
-            , (Vty.KChar 'x', Game.PlayerInput (Game.Two, Game.Special))
+            [ (keys ^. #snakeUp, Game.PlayerInput (playerId, Game.ChangeDirection Game.up))
+            , (keys ^. #snakeDown, Game.PlayerInput (playerId, Game.ChangeDirection Game.down))
+            , (keys ^. #snakeLeft, Game.PlayerInput (playerId, Game.ChangeDirection Game.left))
+            , (keys ^. #snakeRight, Game.PlayerInput (playerId, Game.ChangeDirection Game.right))
+            , (keys ^. #special, Game.PlayerInput (playerId, Game.Special))
             ]
 
 boolToState :: Bool -> GameState

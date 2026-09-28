@@ -50,7 +50,7 @@ data Glyph
 type Space = V2 Integer
 
 data PlayerId = One | Two
-    deriving stock (Show, Eq)
+    deriving stock (Show, Eq, Ord)
 
 newtype World = World Space
     deriving stock (Show)
