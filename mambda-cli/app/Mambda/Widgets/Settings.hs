@@ -49,6 +49,7 @@ data KeyBindings = KeyBindings
     , snakeDown :: Vty.Key
     , snakeLeft :: Vty.Key
     , snakeRight :: Vty.Key
+    , special :: Vty.Key
     }
     deriving stock (Generic)
 
@@ -57,7 +58,7 @@ defaultSettings = Settings Small defaultKeyBindings
 
 defaultKeyBindings :: KeyBindings
 defaultKeyBindings =
-    KeyBindings Vty.KUp Vty.KDown Vty.KLeft Vty.KRight
+    KeyBindings Vty.KUp Vty.KDown Vty.KLeft Vty.KRight Vty.KDel
 
 data Settings = Settings
     { worldSize :: WorldSize
@@ -139,6 +140,7 @@ initState =
                        , Setting "Down" (keyPicker Vty.KDown (#keyBindings . #snakeDown))
                        , Setting "Left" (keyPicker Vty.KLeft (#keyBindings . #snakeLeft))
                        , Setting "Right" (keyPicker Vty.KRight (#keyBindings . #snakeRight))
+                       , Setting "Special" (keyPicker Vty.KDel (#keyBindings . #special))
                        ]
         , opt = defaultSettings
         }

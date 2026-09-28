@@ -85,7 +85,7 @@ mkKeyBindings keys =
             , (keys ^. #snakeDown, Game.PlayerInput (Game.One, Game.ChangeDirection Game.down))
             , (keys ^. #snakeLeft, Game.PlayerInput (Game.One, Game.ChangeDirection Game.left))
             , (keys ^. #snakeRight, Game.PlayerInput (Game.One, Game.ChangeDirection Game.right))
-            , (Vty.KChar ' ', Game.PlayerInput (Game.One, Game.Special))
+            , (keys ^. #special, Game.PlayerInput (Game.One, Game.Special))
             , (Vty.KChar 'w', Game.PlayerInput (Game.Two, Game.ChangeDirection Game.up))
             , (Vty.KChar 's', Game.PlayerInput (Game.Two, Game.ChangeDirection Game.down))
             , (Vty.KChar 'a', Game.PlayerInput (Game.Two, Game.ChangeDirection Game.left))
