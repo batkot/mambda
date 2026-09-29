@@ -7,6 +7,7 @@ module Mambda.Widgets.ListZipper (
     fromNonEmpty,
     swapCurrent,
     modifyCurrent,
+    trySelect,
 ) where
 
 import Prelude
@@ -40,6 +41,11 @@ modifyCurrent f l@ListZipper{current} = l{current = f current}
 
 fromNonEmpty :: NonEmpty a -> ListZipper a
 fromNonEmpty (x :| xs) = ListZipper [] x xs
+
+trySelect :: (Eq a) => a -> ListZipper a -> ListZipper a
+trySelect a zipper
+    | a == current zipper = zipper
+    | otherwise = trySelect a $ next zipper
 
 type IsCurrent = Bool
 

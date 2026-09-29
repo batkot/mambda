@@ -93,8 +93,8 @@ eventHandler x = do
     Brick.modify $ \s -> s & #opt %~ (lens .~ hmm newInternal) & #settings %~ LZ.modifyCurrent (#picker .~ newPicker)
     pure handled
 
-selectPicker :: forall a n ev. (a -> Text.Text) -> NonEmpty a -> Lens' Settings a -> SettingsPicker n ev
-selectPicker f options lens = SettingsPicker lens LZ.current (LZ.fromNonEmpty options) render eventHandler
+selectPicker :: forall a n ev. (a -> Text.Text) -> LZ.ListZipper a -> Lens' Settings a -> SettingsPicker n ev
+selectPicker f options lens = SettingsPicker lens LZ.current options render eventHandler
   where
     eventHandler :: Brick.BrickEvent n e -> Brick.EventM n (LZ.ListZipper a) Bool
     eventHandler (Brick.VtyEvent (Vty.EvKey Vty.KRight [])) = Brick.modify LZ.next $> True
@@ -140,26 +140,31 @@ keyGlyph Vty.KEnter = "Enter"
 keyGlyph Vty.KBS = "Backspace"
 keyGlyph other = Text.show other
 
-initState :: State n ev
-initState =
+initState :: Settings -> State n ev
+initState settings =
     State
         { tick = 0
         , settings =
-            LZ.fromNonEmpty $
-                Setting "World Size" (selectPicker Text.show (Small :| [Medium, Large]) #worldSize)
-                    :| [ Setting "Up" (keyPicker Vty.KUp (#keyBindings . #playerOne . #snakeUp))
-                       , Setting "Down" (keyPicker Vty.KDown (#keyBindings . #playerOne . #snakeDown))
-                       , Setting "Left" (keyPicker Vty.KLeft (#keyBindings . #playerOne . #snakeLeft))
-                       , Setting "Right" (keyPicker Vty.KRight (#keyBindings . #playerOne . #snakeRight))
-                       , Setting "Special" (keyPicker Vty.KDel (#keyBindings . #playerOne . #special))
-                       , Setting "Up" (keyPicker Vty.KUp (#keyBindings . #playerTwo . #snakeUp))
-                       , Setting "Down" (keyPicker Vty.KDown (#keyBindings . #playerTwo . #snakeDown))
-                       , Setting "Left" (keyPicker Vty.KLeft (#keyBindings . #playerTwo . #snakeLeft))
-                       , Setting "Right" (keyPicker Vty.KRight (#keyBindings . #playerTwo . #snakeRight))
-                       , Setting "Special" (keyPicker Vty.KDel (#keyBindings . #playerTwo . #special))
-                       ]
-        , opt = defaultSettings
+            LZ.fromNonEmpty $ settingsFoo settings
+        , opt = settings
         }
+
+settingsFoo :: Settings -> NonEmpty (Setting n ev)
+settingsFoo settings =
+    Setting "World Size" (selectPicker Text.show currentWorldSize #worldSize)
+        :| playerBindings (#keyBindings . #playerOne) <> playerBindings (#keyBindings . #playerTwo)
+  where
+    currentWorldSize = LZ.trySelect (settings ^. #worldSize) $ LZ.fromNonEmpty $ Small :| [Medium, Large]
+    keyPick :: forall n ev. Text.Text -> Lens' Settings Vty.Key -> Setting n ev
+    keyPick label keyLens = Setting label (keyPicker (settings ^. keyLens) keyLens)
+    playerBindings :: Lens' Settings PlayerBindings -> [Setting n ev]
+    playerBindings playerBindingsLens =
+        [ keyPick "Up" (playerBindingsLens . #snakeUp)
+        , keyPick "Down" (playerBindingsLens . #snakeDown)
+        , keyPick "Left" (playerBindingsLens . #snakeLeft)
+        , keyPick "Right" (playerBindingsLens . #snakeRight)
+        , keyPick "Special" (playerBindingsLens . #special)
+        ]
 
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n (State n e) (Maybe Settings)
 handleEvent (Brick.AppEvent _) = do

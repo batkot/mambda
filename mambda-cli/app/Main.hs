@@ -44,7 +44,7 @@ data MambdaEvent = Tick
 mainMenu :: Settings.Settings -> NonEmpty MenuItem
 mainMenu settings =
     MenuItem{label = "Start Game", transitionTo = Game $ Game.initState settings}
-        :| [ MenuItem{label = "Settings", transitionTo = Settings Settings.initState}
+        :| [ MenuItem{label = "Settings", transitionTo = Settings $ Settings.initState settings}
            ]
 
 main :: IO ()
