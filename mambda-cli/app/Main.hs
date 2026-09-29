@@ -11,11 +11,19 @@ import Control.Concurrent qualified as Concurrent
 import Control.Monad (forever, void)
 import Data.List.NonEmpty
 import Data.Text qualified as Text
+import GHC.Generics
+import Lens.Micro
 import Mambda.Widgets.Game qualified as Game
 import Mambda.Widgets.MainMenu qualified as MainMenu
 import Mambda.Widgets.Settings qualified as Settings
 
-data MambdaCliState
+data MambdaCliState = MambdaCliState
+    { currentScreen :: MambdaScreen
+    , screenHistory :: [MambdaScreen]
+    }
+    deriving stock (Generic)
+
+data MambdaScreen
     = Menu (MainMenu.State MenuItem)
     | Game Game.State
     | Settings (Settings.State MambdaCliResource MambdaEvent)
@@ -25,7 +33,7 @@ data MambdaCliResource = MambdaCliResource
 
 data MenuItem = MenuItem
     { label :: Text.Text
-    , transitionTo :: MambdaCliState
+    , transitionTo :: MambdaScreen
     }
 
 instance MainMenu.MenuItem MenuItem where
@@ -46,7 +54,7 @@ main = do
         BChan.writeBChan tickChan Tick
         Concurrent.threadDelay 250_000
     initVty <- buildVty
-    void $ Brick.customMain initVty buildVty (Just tickChan) app $ Menu $ MainMenu.initState $ mainMenu Settings.defaultSettings
+    void $ Brick.customMain initVty buildVty (Just tickChan) app $ MambdaCliState (Menu $ MainMenu.initState $ mainMenu Settings.defaultSettings) mempty
   where
     buildVty = VtyX.mkVty Vty.defaultConfig
     app :: Brick.App MambdaCliState MambdaEvent MambdaCliResource
@@ -59,31 +67,36 @@ main = do
             , appAttrMap = appAttrMap
             }
 
-    appAttrMap = \case
+    appAttrMap MambdaCliState{currentScreen} = case currentScreen of
         Menu _ -> MainMenu.attributeMap
         Game _ -> Game.attributeMap
         Settings _ -> Settings.attributeMap
     handleEvent :: Brick.BrickEvent MambdaCliResource MambdaEvent -> Brick.EventM MambdaCliResource MambdaCliState ()
     handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'q') [])) = Brick.halt
-    handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEsc [])) = Brick.halt
+    handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEsc [])) = do
+        MambdaCliState{screenHistory} <- Brick.get
+        case screenHistory of
+            [] -> Brick.halt
+            x : xs -> Brick.put $ MambdaCliState x xs
     handleEvent ev = do
-        state <- Brick.get
-        case state of
+        MambdaCliState{currentScreen, screenHistory} <- Brick.get
+        case currentScreen of
             Menu menuState -> do
                 (newMenuState, proceed) <- Brick.nestEventM menuState (MainMenu.handleEvent ev)
                 case proceed of
-                    Nothing -> Brick.put $ Menu newMenuState
-                    Just MenuItem{transitionTo} -> Brick.put transitionTo
+                    Nothing -> Brick.modify $ #currentScreen .~ Menu newMenuState
+                    Just MenuItem{transitionTo} -> Brick.put $ MambdaCliState transitionTo (currentScreen : screenHistory)
             Game gameState -> do
                 newGameState <- Brick.nestEventM' gameState (Game.handleEvent ev)
-                Brick.put $ Game newGameState
+                Brick.modify $ #currentScreen .~ Game newGameState
             Settings settingsState -> do
                 (newSettingsState, done) <- Brick.nestEventM settingsState (Settings.handleEvent ev)
-                let newState = maybe (Settings newSettingsState) (Menu . MainMenu.initState . mainMenu) done
-                Brick.put newState
+                case done of
+                    Just settings -> Brick.put $ MambdaCliState (Menu . MainMenu.initState . mainMenu $ settings) (currentScreen : screenHistory)
+                    Nothing -> Brick.modify $ #currentScreen .~ Settings newSettingsState
 
     drawUI :: MambdaCliState -> [Brick.Widget MambdaCliResource]
-    drawUI = \case
+    drawUI MambdaCliState{currentScreen} = case currentScreen of
         Menu menuState -> [MainMenu.render menuState]
         Game gameState -> [Game.render gameState]
         Settings settingsState -> [Settings.render settingsState]
