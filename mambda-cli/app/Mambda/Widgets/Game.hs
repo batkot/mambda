@@ -47,8 +47,8 @@ newtype KeyMap = KeyMap (Map.Map Vty.Key Game.PlayerInput)
 
 renderGlyph :: Game.Glyph -> Brick.Widget n
 renderGlyph Game.Empty = Brick.withAttr emptyAttr $ Brick.str "  "
-renderGlyph Game.Snake = Brick.withAttr snakeAttr $ Brick.str "██"
-renderGlyph Game.SnakeSegment = Brick.withAttr snakeSegmentAttr $ Brick.str "██"
+renderGlyph (Game.Snake pId) = Brick.withAttr (snakeAttr pId) $ Brick.str "██"
+renderGlyph (Game.SnakeSegment pId) = Brick.withAttr (snakeSegmentAttr pId) $ Brick.str "░░"
 renderGlyph Game.Wall = Brick.withAttr wallAttr $ Brick.str "░░"
 renderGlyph Game.Apple = Brick.withAttr appleAttr $ Brick.str "██"
 renderGlyph Game.GoldenApple = Brick.withAttr goldenAppleAttr $ Brick.str "██"
@@ -139,8 +139,10 @@ attributeMap :: Brick.AttrMap
 attributeMap =
     Brick.attrMap
         Vty.defAttr
-        [ (snakeAttr, Vty.brightGreen `Brick.on` Vty.brightGreen)
-        , (snakeSegmentAttr, Vty.green `Brick.on` Vty.green)
+        [ (snakeAttr Game.One, Vty.brightGreen `Brick.on` Vty.brightGreen)
+        , (snakeSegmentAttr Game.One, Vty.brightGreen `Brick.on` Vty.green)
+        , (snakeAttr Game.Two, Vty.brightCyan `Brick.on` Vty.brightCyan)
+        , (snakeSegmentAttr Game.Two, Vty.brightCyan `Brick.on` Vty.cyan)
         , (emptyAttr, Vty.defAttr)
         , (wallAttr, Vty.brightBlack `Brick.on` Vty.black)
         , (appleAttr, Vty.brightRed `Brick.on` Vty.brightRed)
@@ -150,11 +152,11 @@ attributeMap =
         , (laserAttr, Brick.fg Vty.brightRed)
         ]
 
-snakeAttr :: Brick.AttrName
-snakeAttr = Brick.attrName "snake"
+snakeAttr :: Game.PlayerId -> Brick.AttrName
+snakeAttr pId = Brick.attrName $ "snake" <> show pId
 
-snakeSegmentAttr :: Brick.AttrName
-snakeSegmentAttr = Brick.attrName "snakeSegment"
+snakeSegmentAttr :: Game.PlayerId -> Brick.AttrName
+snakeSegmentAttr pId = Brick.attrName $ "snakeSegment" <> show pId
 
 emptyAttr :: Brick.AttrName
 emptyAttr = Brick.attrName "empty"

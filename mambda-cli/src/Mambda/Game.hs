@@ -36,8 +36,8 @@ newtype State m = State (Aztecs.World m)
 newtype Render = Render (Vector.Vector (Vector.Vector Glyph))
 
 data Glyph
-    = Snake
-    | SnakeSegment
+    = Snake PlayerId
+    | SnakeSegment PlayerId
     | Empty
     | Wall
     | Portal
@@ -172,17 +172,17 @@ snakeHead playerId =
     Aztecs.bundle (SnakeHead playerId 3)
         <> Aztecs.bundle startPos
         <> Aztecs.bundle (Velocity (V2 0 0))
-        <> Aztecs.bundle (Renderable Snake)
+        <> Aztecs.bundle (Renderable (Snake playerId))
   where
     startPos =
         case playerId of
             One -> Position (V2 1 1)
             Two -> Position (V2 19 19)
 
-snakeSegment :: forall m. (Monad m, Typeable m) => Aztecs.EntityID -> Space -> Ticks -> Aztecs.BundleT m
-snakeSegment snakeHeadId pos lifetime =
+snakeSegment :: forall m. (Monad m, Typeable m) => PlayerId -> Aztecs.EntityID -> Space -> Ticks -> Aztecs.BundleT m
+snakeSegment playerId snakeHeadId pos lifetime =
     Aztecs.bundle (Position pos)
-        <> Aztecs.bundle (Renderable SnakeSegment)
+        <> Aztecs.bundle (Renderable (SnakeSegment playerId))
         <> Aztecs.bundle (Collidable (Collision @m Dead, Collision @m NoOp))
         <> Aztecs.bundle (Lifetime lifetime)
         <> Aztecs.bundle (Aztecs.Parent snakeHeadId)
@@ -247,7 +247,7 @@ moveSystem = void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMapWith move A
 snakeGhostSystem :: (Monad m, Typeable m) => Aztecs.Access m ()
 snakeGhostSystem = do
     snakes <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(_, _, _, Velocity v) -> v /= V2 0 0) $ (,,,) <$> Aztecs.entity <*> Aztecs.query <*> Aztecs.query <*> Aztecs.query
-    Vector.forM_ snakes $ \(snakeEntityId, SnakeHead _ l, Position pos, _) -> Aztecs.spawn_ $ snakeSegment snakeEntityId pos $ toInteger l
+    Vector.forM_ snakes $ \(snakeEntityId, SnakeHead pId l, Position pos, _) -> Aztecs.spawn_ $ snakeSegment pId snakeEntityId pos $ toInteger l
 
 lifetimeSystem :: (Monad m) => Aztecs.Access m ()
 lifetimeSystem = do
