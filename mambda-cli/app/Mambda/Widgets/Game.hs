@@ -40,6 +40,7 @@ data State = State
     , inputQueue :: [Game.PlayerInput]
     , keyBindings :: KeyMap
     , settings :: S.Settings
+    , players :: NonEmpty Game.PlayerId
     }
     deriving stock (Generic)
 
@@ -56,8 +57,8 @@ renderGlyph Game.Portal = Brick.withAttr portalAttr $ Brick.str "▌▐"
 renderGlyph Game.Poison = Brick.withAttr poisonAttr $ Brick.str "██"
 renderGlyph Game.Laser = Brick.withAttr laserAttr $ Brick.str "╪╪"
 
-initState :: S.Settings -> State
-initState settings =
+initState :: NonEmpty Game.PlayerId -> S.Settings -> State
+initState players settings =
     State
         { game
         , state = Running
@@ -65,9 +66,10 @@ initState settings =
         , currentFrame
         , keyBindings
         , settings
+        , players
         }
   where
-    game = runIdentity $ Game.init (Game.One :| [Game.Two]) worldSettings
+    game = runIdentity $ Game.init players worldSettings
     currentFrame = runIdentity $ Game.render game
     worldSettings = worldSizeToSettings $ settings ^. #worldSize
     keyBindings = mkKeyBindings $ settings ^. #keyBindings
@@ -102,7 +104,7 @@ handleEvent (Brick.AppEvent _) = do
             frame = runIdentity $ Game.render game
          in s & #game .~ game & #state .~ state & #currentFrame .~ frame
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) =
-    Brick.modify $ \s@(State _ r _ _ _ settings) -> if r == Finished then initState settings else s
+    Brick.modify $ \s@(State _ r _ _ _ settings players) -> if r == Finished then initState players settings else s
 handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'p') [])) = do
     gameState <- Brick.gets $ view #state
     case gameState of

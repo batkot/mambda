@@ -17,6 +17,9 @@ import Mambda.Widgets.Game qualified as Game
 import Mambda.Widgets.MainMenu qualified as MainMenu
 import Mambda.Widgets.Settings qualified as Settings
 
+import Data.List.NonEmpty qualified as NonEmpty
+import Mambda.Game qualified as Game (PlayerId (..))
+
 data MambdaCliState = MambdaCliState
     { currentScreen :: MambdaScreen
     , screenHistory :: [MambdaScreen]
@@ -43,8 +46,9 @@ data MambdaEvent = Tick
 
 mainMenu :: Settings.Settings -> NonEmpty MenuItem
 mainMenu settings =
-    MenuItem{label = "Start Game", transitionTo = Game $ Game.initState settings}
-        :| [ MenuItem{label = "Settings", transitionTo = Settings $ Settings.initState settings}
+    MenuItem{label = "Classic", transitionTo = Game $ Game.initState (NonEmpty.singleton Game.One) settings}
+        :| [ MenuItem{label = "Versus Mode", transitionTo = Game $ Game.initState (Game.One :| [Game.Two]) settings}
+           , MenuItem{label = "Settings", transitionTo = Settings $ Settings.initState settings}
            ]
 
 main :: IO ()

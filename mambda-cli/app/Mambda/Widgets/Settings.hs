@@ -67,7 +67,7 @@ defaultSettings = Settings Small defaultKeyBindings
 defaultKeyBindings :: KeyBindings
 defaultKeyBindings =
     KeyBindings
-        { playerOne = PlayerBindings Vty.KUp Vty.KDown Vty.KLeft Vty.KRight Vty.KDel
+        { playerOne = PlayerBindings Vty.KUp Vty.KDown Vty.KLeft Vty.KRight Vty.KBS
         , playerTwo = PlayerBindings (Vty.KChar 'w') (Vty.KChar 's') (Vty.KChar 'a') (Vty.KChar 'd') (Vty.KChar ' ')
         }
 
