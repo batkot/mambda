@@ -146,7 +146,7 @@ attributeMap =
         , (snakeAttr Game.Two, Vty.brightCyan `Brick.on` Vty.brightCyan)
         , (snakeSegmentAttr Game.Two, Vty.brightCyan `Brick.on` Vty.cyan)
         , (emptyAttr, Vty.defAttr)
-        , (wallAttr, Vty.brightBlack `Brick.on` Vty.black)
+        , (wallAttr, Brick.fg Vty.brightBlack)
         , (appleAttr, Vty.brightRed `Brick.on` Vty.brightRed)
         , (goldenAppleAttr, Vty.brightYellow `Brick.on` Vty.brightYellow)
         , (portalAttr, Brick.fg Vty.brightBlue)
