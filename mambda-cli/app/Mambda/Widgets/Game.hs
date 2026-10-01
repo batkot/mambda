@@ -23,7 +23,7 @@ import Data.Generics.Labels ()
 import Data.Vector qualified as Vector
 import GHC.Generics (Generic)
 import Graphics.Vty qualified as Vty
-import Lens.Micro ((&), (.~), (^.))
+import Lens.Micro ((%~), (&), (.~), (^.))
 import Lens.Micro.Extras
 
 import Data.List.NonEmpty
@@ -37,7 +37,7 @@ data State = State
     { game :: Game.State Identity
     , state :: GameState
     , currentFrame :: Game.Render
-    , inputQueue :: [Game.PlayerInput]
+    , inputQueue :: Game.InputQueue
     , keyBindings :: KeyMap
     , settings :: S.Settings
     , players :: NonEmpty Game.PlayerId
@@ -62,7 +62,7 @@ initState players settings =
     State
         { game
         , state = Running
-        , inputQueue = mempty
+        , inputQueue = Game.initInputQueue
         , currentFrame
         , keyBindings
         , settings
@@ -100,9 +100,9 @@ handleEvent :: Brick.BrickEvent n e -> Brick.EventM n State ()
 handleEvent (Brick.AppEvent _) = do
     paused <- Brick.gets $ (==) Paused . view #state
     unless paused $ Brick.modify $ \s ->
-        let (state, game) = runIdentity $ first boolToState <$> Game.step (s ^. #game)
+        let (state, game) = runIdentity $ first boolToState <$> Game.step (s ^. #inputQueue) (s ^. #game)
             frame = runIdentity $ Game.render game
-         in s & #game .~ game & #state .~ state & #currentFrame .~ frame
+         in s & #game .~ game & #state .~ state & #currentFrame .~ frame & #inputQueue .~ Game.initInputQueue
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) =
     Brick.modify $ \s@(State _ r _ _ _ settings players) -> if r == Finished then initState players settings else s
 handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'p') [])) = do
@@ -115,11 +115,7 @@ handleEvent (Brick.VtyEvent (Vty.EvKey k [])) = do
     KeyMap keyMap <- Brick.gets $ view #keyBindings
     case Map.lookup k keyMap of
         Nothing -> pure ()
-        Just input ->
-            Brick.modify $ \s ->
-                let game = runIdentity $ Game.control input (s ^. #game)
-                    frame = runIdentity $ Game.render game
-                 in s & #game .~ game & #currentFrame .~ frame
+        Just input -> Brick.modify $ #inputQueue %~ flip Game.addInput input
 handleEvent _ = pure ()
 
 render :: State -> Brick.Widget n

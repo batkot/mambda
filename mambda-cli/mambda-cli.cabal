@@ -41,6 +41,7 @@ library
   build-depends:
       aztecs
     , base >=4.7 && <5
+    , containers
     , linear
     , vector
   default-language: GHC2024
@@ -102,6 +103,7 @@ test-suite unit
     , QuickCheck
     , aztecs
     , base >=4.7 && <5
+    , containers
     , linear
     , mambda-cli
     , tasty
