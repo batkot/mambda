@@ -18,6 +18,7 @@ module Mambda.Game (
     left,
     right,
     PlayerId (..),
+    Seed (..),
 ) where
 
 import Prelude hiding (init, (!!))
@@ -115,7 +116,7 @@ spawnEntity toSpawn = do
         Nothing -> pure ()
         Just available -> Aztecs.spawn_ $ toSpawn $ (\(Position x) -> x) $ pick (foo seed tick) available
 
-pick :: forall a. Seed -> NonEmpty a -> a
+pick :: Seed -> NonEmpty a -> a
 pick (Seed seed) elements = elements !! index
   where
     index = fst $ Random.uniformR (0, NonEmpty.length elements) stdGen
@@ -246,13 +247,12 @@ goldenApple pos =
 wall :: forall m. (Monad m, Typeable m) => Space -> Aztecs.Access m ()
 wall pos = void $ Aztecs.spawn $ Aztecs.bundle (Position pos) <> Aztecs.bundle (NewCollision @m despawnCollision) <> Aztecs.bundle (Renderable Wall)
 
-sampleWorld :: forall m. (Monad m, Typeable m) => NonEmpty PlayerId -> WorldSettings -> Aztecs.Access m ()
-sampleWorld players WorldSettings{width, height} = do
+initWorld :: forall m. (Monad m, Typeable m) => NonEmpty PlayerId -> Seed -> WorldSettings -> Aztecs.Access m ()
+initWorld players seed WorldSettings{width, height} = do
+    void $ Aztecs.spawn $ Aztecs.bundle (World (V2 (toInteger height) (toInteger width)) seed 0)
     forM_ players $ Aztecs.spawn . snakeHead
-    void $ Aztecs.spawn $ apple (V2 1 5)
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (NewCollision @m (teleportCollision (V2 2 2))) <> Aztecs.bundle (Renderable Portal)
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 19)) <> Aztecs.bundle (NewCollision @m (appleCollision (Scores (-5)))) <> Aztecs.bundle (Renderable Poison)
-    void $ Aztecs.spawn $ Aztecs.bundle (World (V2 (toInteger height) (toInteger width)) (Seed 1) 0)
     forM_ walls $ \(x, y) -> wall $ V2 x y
     forM_ borders $ \(h, w) ->
         let (exitH, exitW) =
@@ -262,6 +262,7 @@ sampleWorld players WorldSettings{width, height} = do
                     (x, y) | x == heightInt -> (0, y)
                     (x, _) -> (x, 0)
          in void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 h w)) <> Aztecs.bundle (NewCollision @m $ teleportCollision (V2 exitH exitW))
+    spawnEntity apple
   where
     widthInt = toInteger width
     heightInt = toInteger height
@@ -278,8 +279,8 @@ sampleWorld players WorldSettings{width, height} = do
         , or [h == -1, h == heightInt, w == -1, w == widthInt]
         ]
 
-init :: (Monad m, Typeable m) => NonEmpty PlayerId -> WorldSettings -> m (State m)
-init players worldSettings = State . snd <$> Aztecs.runAccess (sampleWorld players worldSettings) World.empty
+init :: (Monad m, Typeable m) => NonEmpty PlayerId -> Seed -> WorldSettings -> m (State m)
+init players seed worldSettings = State . snd <$> Aztecs.runAccess (initWorld players seed worldSettings) World.empty
 
 gameStep :: (Monad m, Typeable m) => InputQueue -> Aztecs.Access m Bool
 gameStep playerInput = do

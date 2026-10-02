@@ -29,6 +29,7 @@ import Lens.Micro.Extras
 import Data.List.NonEmpty
 import Data.Map qualified as Map
 import Mambda.Widgets.Settings qualified as S
+import System.Random (randomIO)
 
 data GameState = Running | Paused | Finished
     deriving stock (Eq)
@@ -57,8 +58,8 @@ renderGlyph Game.Portal = Brick.withAttr portalAttr $ Brick.str "▌▐"
 renderGlyph Game.Poison = Brick.withAttr poisonAttr $ Brick.str "██"
 renderGlyph Game.Laser = Brick.withAttr laserAttr $ Brick.str "╪╪"
 
-initState :: NonEmpty Game.PlayerId -> S.Settings -> State
-initState players settings =
+initState :: NonEmpty Game.PlayerId -> Game.Seed -> S.Settings -> State
+initState players seed settings =
     State
         { game
         , state = Running
@@ -69,7 +70,7 @@ initState players settings =
         , players
         }
   where
-    game = runIdentity $ Game.init players worldSettings
+    game = runIdentity $ Game.init players seed worldSettings
     currentFrame = runIdentity $ Game.render game
     worldSettings = worldSizeToSettings $ settings ^. #worldSize
     keyBindings = mkKeyBindings $ settings ^. #keyBindings
@@ -103,8 +104,13 @@ handleEvent (Brick.AppEvent _) = do
         let (state, game) = runIdentity $ first boolToState <$> Game.step (s ^. #inputQueue) (s ^. #game)
             frame = runIdentity $ Game.render game
          in s & #game .~ game & #state .~ state & #currentFrame .~ frame & #inputQueue .~ Game.initInputQueue
-handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) =
-    Brick.modify $ \s@(State _ r _ _ _ settings players) -> if r == Finished then initState players settings else s
+handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) = do
+    gameStatus <- Brick.gets (^. #state)
+    case gameStatus of
+        Finished -> do
+            newSeed <- Game.Seed <$> randomIO
+            Brick.modify $ \s@(State _ r _ _ _ settings players) -> if r == Finished then initState players newSeed settings else s
+        _ -> pure ()
 handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'p') [])) = do
     gameState <- Brick.gets $ view #state
     case gameState of

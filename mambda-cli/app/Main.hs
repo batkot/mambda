@@ -18,7 +18,8 @@ import Mambda.Widgets.MainMenu qualified as MainMenu
 import Mambda.Widgets.Settings qualified as Settings
 
 import Data.List.NonEmpty qualified as NonEmpty
-import Mambda.Game qualified as Game (PlayerId (..))
+import Mambda.Game qualified as Game (PlayerId (..), Seed (..))
+import System.Random (randomIO)
 
 data MambdaCliState = MambdaCliState
     { currentScreen :: MambdaScreen
@@ -44,10 +45,10 @@ instance MainMenu.MenuItem MenuItem where
 
 data MambdaEvent = Tick
 
-mainMenu :: Settings.Settings -> NonEmpty MenuItem
-mainMenu settings =
-    MenuItem{label = "Classic", transitionTo = Game $ Game.initState (NonEmpty.singleton Game.One) settings}
-        :| [ MenuItem{label = "Versus Mode", transitionTo = Game $ Game.initState (Game.One :| [Game.Two]) settings}
+mainMenu :: Game.Seed -> Settings.Settings -> NonEmpty MenuItem
+mainMenu seed settings =
+    MenuItem{label = "Classic", transitionTo = Game $ Game.initState (NonEmpty.singleton Game.One) seed settings}
+        :| [ MenuItem{label = "Versus Mode", transitionTo = Game $ Game.initState (Game.One :| [Game.Two]) seed settings}
            , MenuItem{label = "Settings", transitionTo = Settings $ Settings.initState settings}
            ]
 
@@ -58,7 +59,8 @@ main = do
         BChan.writeBChan tickChan Tick
         Concurrent.threadDelay 250_000
     initVty <- buildVty
-    void $ Brick.customMain initVty buildVty (Just tickChan) app $ MambdaCliState (Menu $ MainMenu.initState $ mainMenu Settings.defaultSettings) mempty
+    seed <- Game.Seed <$> randomIO
+    void $ Brick.customMain initVty buildVty (Just tickChan) app $ MambdaCliState (Menu $ MainMenu.initState $ mainMenu seed Settings.defaultSettings) mempty
   where
     buildVty = VtyX.mkVty Vty.defaultConfig
     app :: Brick.App MambdaCliState MambdaEvent MambdaCliResource
@@ -96,7 +98,9 @@ main = do
             Settings settingsState -> do
                 (newSettingsState, done) <- Brick.nestEventM settingsState (Settings.handleEvent ev)
                 case done of
-                    Just settings -> Brick.put $ MambdaCliState (Menu . MainMenu.initState . mainMenu $ settings) (currentScreen : screenHistory)
+                    Just settings -> do
+                        seed <- Game.Seed <$> randomIO
+                        Brick.put $ MambdaCliState (Menu . MainMenu.initState . mainMenu seed $ settings) (currentScreen : screenHistory)
                     Nothing -> Brick.modify $ #currentScreen .~ Settings newSettingsState
 
     drawUI :: MambdaCliState -> [Brick.Widget MambdaCliResource]
