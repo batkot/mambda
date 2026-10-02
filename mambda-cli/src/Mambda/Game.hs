@@ -24,7 +24,7 @@ import Prelude hiding (init, (!!))
 
 import Aztecs qualified
 import Aztecs.ECS.World qualified as World
-import Control.Monad
+import Control.Monad.Extra
 import Data.Bifunctor
 import Data.Foldable (traverse_)
 import Data.List.NonEmpty hiding (init)
@@ -125,7 +125,8 @@ appleCollision :: (Monad m, Typeable m) => Scores -> CollisionAction m
 appleCollision scores appleEntityId snakeEntityId = do
     score snakeEntityId scores
     void $ Aztecs.despawn appleEntityId
-    spawnEntity apple
+    World{tick} <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.query
+    spawnEntity $ if tick `mod` 5 == 0 then goldenApple else apple
 
 despawnCollision :: (Monad m) => CollisionAction m
 despawnCollision _ = Aztecs.despawn
@@ -138,10 +139,15 @@ teleportCollision target _ collided = do
 collisionSystem :: forall m. (Monad m, Typeable m) => Aztecs.Access m ()
 collisionSystem = do
     snakes <- Aztecs.system $ Aztecs.runQueryFiltered ((,) <$> Aztecs.entity <*> Aztecs.query @_ @Position) $ Aztecs.with @m @SnakeHead
-    Vector.forM_ snakes $ \(snakeEntityId, position) -> do
+    Vector.forM_ snakes collisionLoop
+  where
+    collisionLoop (snakeEntityId, position) = do
         collisions <- Aztecs.system $ Aztecs.runQuery (findCollisions position)
         Vector.forM_ collisions $ \(entityId, NewCollision action) -> do
             action entityId snakeEntityId
+            currentPos <- Aztecs.lookup snakeEntityId
+            whenJust currentPos $ \newPos ->
+                unless (newPos == position) $ collisionLoop (snakeEntityId, newPos)
 
 findCollisions :: forall m. (Monad m, Typeable m) => Position -> Aztecs.Query m (Aztecs.EntityID, NewCollision m)
 findCollisions pos = fmap fst $ Aztecs.queryFilter ((==) pos . snd) $ (,) <$> ((,) <$> Aztecs.entity <*> Aztecs.query @m @(NewCollision m)) <*> Aztecs.query @m @Position
@@ -230,6 +236,12 @@ apple pos =
     Aztecs.bundle (Position pos)
         <> Aztecs.bundle (Renderable Apple)
         <> Aztecs.bundle (NewCollision @m (appleCollision (Scores 1)))
+
+goldenApple :: forall m. (Monad m, Typeable m) => Space -> Aztecs.BundleT m
+goldenApple pos =
+    Aztecs.bundle (Position pos)
+        <> Aztecs.bundle (Renderable GoldenApple)
+        <> Aztecs.bundle (NewCollision @m (appleCollision (Scores 5)))
 
 wall :: forall m. (Monad m, Typeable m) => Space -> Aztecs.Access m ()
 wall pos = void $ Aztecs.spawn $ Aztecs.bundle (Position pos) <> Aztecs.bundle (NewCollision @m despawnCollision) <> Aztecs.bundle (Renderable Wall)

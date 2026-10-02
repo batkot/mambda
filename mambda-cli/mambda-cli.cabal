@@ -42,6 +42,7 @@ library
       aztecs
     , base >=4.7 && <5
     , containers
+    , extra
     , linear
     , random
     , vector
@@ -72,6 +73,7 @@ executable mambda
     , brick
     , bytestring
     , containers
+    , extra
     , file-embed
     , generic-lens
     , linear
@@ -106,6 +108,7 @@ test-suite unit
     , aztecs
     , base >=4.7 && <5
     , containers
+    , extra
     , linear
     , mambda-cli
     , random

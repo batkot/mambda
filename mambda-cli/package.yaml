@@ -33,6 +33,7 @@ dependencies:
 - aztecs
 - base >= 4.7 && < 5
 - containers
+- extra
 - linear
 - random
 - vector
