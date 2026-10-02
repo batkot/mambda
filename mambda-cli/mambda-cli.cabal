@@ -43,6 +43,7 @@ library
     , base >=4.7 && <5
     , containers
     , linear
+    , random
     , vector
   default-language: GHC2024
 
@@ -77,6 +78,7 @@ executable mambda
     , mambda-cli
     , microlens
     , microlens-ghc
+    , random
     , text
     , vector
     , vty
@@ -106,6 +108,7 @@ test-suite unit
     , containers
     , linear
     , mambda-cli
+    , random
     , tasty
     , tasty-discover
     , tasty-hunit

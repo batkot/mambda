@@ -20,7 +20,7 @@ module Mambda.Game (
     PlayerId (..),
 ) where
 
-import Prelude hiding (init)
+import Prelude hiding (init, (!!))
 
 import Aztecs qualified
 import Aztecs.ECS.World qualified as World
@@ -28,11 +28,13 @@ import Control.Monad
 import Data.Bifunctor
 import Data.Foldable (traverse_)
 import Data.List.NonEmpty hiding (init)
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Set qualified as Set
 import Data.Typeable (Typeable)
 import Data.Vector qualified as Vector
 import Data.Word (Word8)
 import Linear
+import System.Random qualified as Random
 
 newtype State m = State (Aztecs.World m)
 
@@ -55,7 +57,17 @@ type Space = V2 Integer
 data PlayerId = One | Two
     deriving stock (Show, Eq, Ord)
 
-newtype World = World Space
+newtype Seed = Seed Integer
+    deriving (Show)
+
+foo :: Seed -> Ticks -> Seed
+foo (Seed x) y = Seed $ x + y
+
+data World = World
+    { size :: Space
+    , seed :: Seed
+    , tick :: Ticks
+    }
     deriving stock (Show)
     deriving anyclass (Aztecs.Component m)
 
@@ -97,11 +109,17 @@ score entity (Scores score') = do
 spawnEntity :: forall m. (Monad m) => (Space -> Aztecs.BundleT m) -> Aztecs.Access m ()
 spawnEntity toSpawn = do
     takenSpots <- Aztecs.system $ Aztecs.runQuery $ Aztecs.query @m @Position
-    World (V2 width height) <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.query @m @World
-    let free = [Position (V2 w h) | w <- [0 .. width], h <- [0 .. height], Vector.notElem (Position (V2 w h)) takenSpots]
+    World{size = V2 width height, seed, tick} <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.query @m @World
+    let free = NonEmpty.nonEmpty [Position (V2 w h) | w <- [0 .. width], h <- [0 .. height], Vector.notElem (Position (V2 w h)) takenSpots]
     case free of
-        [] -> pure ()
-        ((Position pos) : _) -> Aztecs.spawn_ $ toSpawn pos
+        Nothing -> pure ()
+        Just available -> Aztecs.spawn_ $ toSpawn $ (\(Position x) -> x) $ pick (foo seed tick) available
+
+pick :: forall a. Seed -> NonEmpty a -> a
+pick (Seed seed) elements = elements !! index
+  where
+    index = fst $ Random.uniformR (0, NonEmpty.length elements) stdGen
+    stdGen = Random.mkStdGen $ fromInteger seed
 
 appleCollision :: (Monad m, Typeable m) => Scores -> CollisionAction m
 appleCollision scores appleEntityId snakeEntityId = do
@@ -222,7 +240,7 @@ sampleWorld players WorldSettings{width, height} = do
     void $ Aztecs.spawn $ apple (V2 1 5)
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (NewCollision @m (teleportCollision (V2 2 2))) <> Aztecs.bundle (Renderable Portal)
     void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 19)) <> Aztecs.bundle (NewCollision @m (appleCollision (Scores (-5)))) <> Aztecs.bundle (Renderable Poison)
-    void $ Aztecs.spawn $ Aztecs.bundle (World (V2 (toInteger height) (toInteger width)))
+    void $ Aztecs.spawn $ Aztecs.bundle (World (V2 (toInteger height) (toInteger width)) (Seed 1) 0)
     forM_ walls $ \(x, y) -> wall $ V2 x y
     forM_ borders $ \(h, w) ->
         let (exitH, exitW) =
@@ -253,12 +271,16 @@ init players worldSettings = State . snd <$> Aztecs.runAccess (sampleWorld playe
 
 gameStep :: (Monad m, Typeable m) => InputQueue -> Aztecs.Access m Bool
 gameStep playerInput = do
+    timeSystem
     lifetimeSystem
     playerActionSystem playerInput
     snakeGhostSystem
     moveSystem
     collisionSystem
     endGameSystem
+
+timeSystem :: (Monad m) => Aztecs.Access m ()
+timeSystem = void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\w@World{tick} -> w{tick = tick + 1})
 
 moveSystem :: (Monad m) => Aztecs.Access m ()
 moveSystem = void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMapWith move Aztecs.query
@@ -292,7 +314,7 @@ playerAction (PlayerInput (playerId, ChangeDirection (SnakeDirection dir))) =
         | currentVel + dir == V2 0 0 = Velocity currentVel
         | otherwise = Velocity dir
 playerAction (PlayerInput (pId, Special)) = do
-    (World (V2 width height)) <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
+    World{size = V2 width height} <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
     snakes <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(SnakeHead{playerId}, _, _) -> playerId == pId) ((,,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.query @_ @Position <*> Aztecs.query @_ @Velocity)
     forM_ snakes $ \(_, Position (V2 px py), Velocity (V2 vx vy)) ->
         forM_ (Vector.generate (fromInteger $ max width height) (\x -> V2 (max 0 (min (width - 1) (px + toInteger x * vx))) (max 0 (min (height - 1) (py + toInteger x * vy))))) $ \laserPos -> do
@@ -308,7 +330,7 @@ render (State world) = fst <$> Aztecs.runAccess doRender world
 
 doRender :: forall m. (Monad m) => Aztecs.Access m Render
 doRender = do
-    World (V2 width height) <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.query @m @World
+    World{size = V2 width height} <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.query @m @World
     positions <- Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.query <*> Aztecs.query
     let emptyGrid = Vector.replicate (fromInteger width) $ Vector.replicate (fromInteger height) Empty
         fullGrid = Vector.foldr writeElem emptyGrid positions
