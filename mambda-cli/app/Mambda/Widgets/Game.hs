@@ -56,7 +56,8 @@ renderGlyph Game.Apple = Brick.withAttr appleAttr $ Brick.str "██"
 renderGlyph Game.GoldenApple = Brick.withAttr goldenAppleAttr $ Brick.str "██"
 renderGlyph Game.Portal = Brick.withAttr portalAttr $ Brick.str "▌▐"
 renderGlyph Game.Poison = Brick.withAttr poisonAttr $ Brick.str "██"
-renderGlyph Game.Laser = Brick.withAttr laserAttr $ Brick.str "╪╪"
+renderGlyph Game.LaserBeam = Brick.withAttr laserBeamAttr $ Brick.str "╪╪"
+renderGlyph Game.Laser = Brick.withAttr laserAttr $ Brick.str "█▃"
 
 initState :: NonEmpty Game.PlayerId -> Game.Seed -> S.Settings -> State
 initState players seed settings =
@@ -154,6 +155,7 @@ attributeMap =
     , (portalAttr, Brick.fg Vty.brightBlue)
     , (poisonAttr, Vty.brightMagenta `Brick.on` Vty.brightMagenta)
     , (laserAttr, Brick.fg Vty.brightRed)
+    , (laserBeamAttr, Brick.fg Vty.brightRed)
     ]
 
 snakeAttr :: Game.PlayerId -> Brick.AttrName
@@ -179,6 +181,9 @@ poisonAttr = Brick.attrName "poison"
 
 laserAttr :: Brick.AttrName
 laserAttr = Brick.attrName "laser"
+
+laserBeamAttr :: Brick.AttrName
+laserBeamAttr = Brick.attrName "laser-beam"
 
 goldenAppleAttr :: Brick.AttrName
 goldenAppleAttr = Brick.attrName "golden-apple"
