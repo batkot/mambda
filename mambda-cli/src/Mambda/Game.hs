@@ -267,7 +267,7 @@ initWorld :: forall m. (Monad m, Typeable m) => NonEmpty PlayerId -> Seed -> Wor
 initWorld players seed WorldSettings{width, height} = do
   void $ Aztecs.spawn $ Aztecs.bundle (World (V2 (toInteger height) (toInteger width)) seed 0)
   forM_ players $ Aztecs.spawn . snakeHead
-  Aztecs.spawn_ $ Aztecs.bundle (Position (V2 10 10)) <> laserItem <> Aztecs.bundle (Renderable Laser)
+  Aztecs.spawn_ $ Aztecs.bundle (Position (V2 10 10)) <> bombItem <> Aztecs.bundle (Renderable Laser)
   --   void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable @m (teleportCollision (V2 2 2))) <> Aztecs.bundle (Renderable Portal)
   --   void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 19)) <> Aztecs.bundle (Collidable @m (appleCollision (Scores (-5)))) <> Aztecs.bundle (Renderable Poison)
   forM_ walls $ \(x, y) -> wall $ V2 x y
@@ -368,6 +368,12 @@ fireLaser (Position (V2 startX startY)) (Velocity (V2 dirX dirY)) = do
         <> Aztecs.bundle (Lifetime 1)
     collisions <- Aztecs.system $ Aztecs.runQuery (findCollisions $ Position laserPos)
     Vector.forM_ collisions $ Aztecs.despawn . fst
+
+bombItem :: forall m. (Monad m, Typeable m) => Aztecs.BundleT m
+bombItem =
+  item . Special' @m $ \snakeEntityId -> do
+    (lastSegmentPosition, _, _) <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.queryFilter (\(Position _, Lifetime x, Aztecs.Parent parentId) -> x == 1 && parentId == snakeEntityId) ((,,) <$> Aztecs.query <*> Aztecs.query <*> Aztecs.query)
+    Aztecs.spawn_ $ laserItem <> Aztecs.bundle lastSegmentPosition <> Aztecs.bundle (Renderable Laser)
 
 emptySpecial :: forall m. (Monad m) => Special m
 emptySpecial = Special' @m $ const $ pure ()
