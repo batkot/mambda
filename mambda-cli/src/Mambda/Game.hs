@@ -30,6 +30,7 @@ import Data.Bifunctor
 import Data.Foldable (traverse_)
 import Data.List.NonEmpty hiding (init)
 import Data.List.NonEmpty qualified as NonEmpty
+import Data.Maybe
 import Data.Set qualified as Set
 import Data.Typeable (Typeable)
 import Data.Vector qualified as Vector
@@ -101,12 +102,15 @@ newtype Collidable m = Collidable (CollisionAction m)
 
 type CollisionAction m = Aztecs.EntityID -> Aztecs.EntityID -> Aztecs.Access m ()
 
-item :: forall m. (Monad m, Typeable m) => Item -> Aztecs.BundleT m
-item i =
+newtype Special m = Special' (Aztecs.EntityID -> Aztecs.Access m ())
+  deriving anyclass (Aztecs.Component m)
+
+item :: forall m. (Monad m, Typeable m) => Special m -> Aztecs.BundleT m
+item special =
   Aztecs.bundle $ Collidable @m $ \self other -> do
-    headMaybe <- Aztecs.lookup @_ @SnakeHead other
-    forM_ headMaybe $ \head ->
-      Aztecs.insertUntracked other $ Aztecs.bundle $ head{special = Just i}
+    headMb <- Aztecs.lookup @m @SnakeHead other
+    forM_ headMb $ const $ Aztecs.insert other $ Aztecs.bundle special
+    Aztecs.despawn self
 
 score :: (Monad m) => Aztecs.EntityID -> Scores -> Aztecs.Access m ()
 score entity (Scores score') = do
@@ -263,7 +267,7 @@ initWorld :: forall m. (Monad m, Typeable m) => NonEmpty PlayerId -> Seed -> Wor
 initWorld players seed WorldSettings{width, height} = do
   void $ Aztecs.spawn $ Aztecs.bundle (World (V2 (toInteger height) (toInteger width)) seed 0)
   forM_ players $ Aztecs.spawn . snakeHead
-  Aztecs.spawn_ $ Aztecs.bundle (Position (V2 10 10)) <> item Item <> Aztecs.bundle (Renderable Laser)
+  Aztecs.spawn_ $ Aztecs.bundle (Position (V2 10 10)) <> laserItem <> Aztecs.bundle (Renderable Laser)
   --   void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable @m (teleportCollision (V2 2 2))) <> Aztecs.bundle (Renderable Portal)
   --   void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 19)) <> Aztecs.bundle (Collidable @m (appleCollision (Scores (-5)))) <> Aztecs.bundle (Renderable Poison)
   forM_ walls $ \(x, y) -> wall $ V2 x y
@@ -332,7 +336,7 @@ playerActionSystem (InputQueue input) = mapM_ playerAction $ Set.map (\(pId, Con
 step :: (Monad m, Typeable m) => InputQueue -> State m -> m (Bool, State m)
 step playerInput (State world) = second State <$> Aztecs.runAccess (gameStep playerInput) world
 
-playerAction :: (Monad m, Typeable m) => PlayerInput -> Aztecs.Access m ()
+playerAction :: forall m. (Monad m, Typeable m) => PlayerInput -> Aztecs.Access m ()
 playerAction (PlayerInput (playerId, ChangeDirection (SnakeDirection dir))) =
   void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(SnakeHead pId _ _, _) -> pId == playerId) ((,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.queryMap mapVel)
  where
@@ -340,14 +344,22 @@ playerAction (PlayerInput (playerId, ChangeDirection (SnakeDirection dir))) =
     | currentVel + dir == V2 0 0 = Velocity currentVel
     | otherwise = Velocity dir
 playerAction (PlayerInput (pId, Special)) = do
-  snakes <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(_, SnakeHead{playerId}, _, _) -> playerId == pId) ((,,,) <$> Aztecs.entity <*> Aztecs.query @_ @SnakeHead <*> Aztecs.query @_ @Position <*> Aztecs.query @_ @Velocity)
-  forM_ snakes $ \(snakeEntityId, head@SnakeHead{special}, Position position, Velocity vel) ->
-    forM_ special $ \s -> do
-      fireLaser position vel
-      Aztecs.insert snakeEntityId $ Aztecs.bundle $ head{special = Nothing}
+  snakes <- fmap (fmap fst) $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(_, SnakeHead{playerId}) -> playerId == pId) ((,) <$> Aztecs.entity <*> Aztecs.query)
+  forM_ snakes $ \snakeEntityId -> do
+    special <- Aztecs.lookup snakeEntityId
+    forM_ special $ \(Special' specialAction) -> do
+      specialAction snakeEntityId
+      -- Component removal is broken in Aztecs
+      Aztecs.insert snakeEntityId $ Aztecs.bundle $ emptySpecial @m
 
-fireLaser :: (Monad m, Typeable m) => Space -> Space -> Aztecs.Access m ()
-fireLaser (V2 startX startY) (V2 dirX dirY) = do
+laserItem :: forall m. (Monad m, Typeable m) => Aztecs.BundleT m
+laserItem =
+  item . Special' @m $ \snakeEntityId -> do
+    (posMb, velMb) <- (,) <$> Aztecs.lookup snakeEntityId <*> Aztecs.lookup snakeEntityId
+    fromMaybe (pure ()) $ fireLaser <$> posMb <*> velMb
+
+fireLaser :: (Monad m, Typeable m) => Position -> Velocity -> Aztecs.Access m ()
+fireLaser (Position (V2 startX startY)) (Velocity (V2 dirX dirY)) = do
   World{size = V2 width height} <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
   forM_ (Vector.generate (fromInteger $ max width height) (\x -> V2 (max 0 (min (width - 1) (startX + toInteger x * dirX))) (max 0 (min (height - 1) (startY + toInteger x * dirY))))) $ \laserPos -> do
     Aztecs.spawn_ $
@@ -356,6 +368,9 @@ fireLaser (V2 startX startY) (V2 dirX dirY) = do
         <> Aztecs.bundle (Lifetime 1)
     collisions <- Aztecs.system $ Aztecs.runQuery (findCollisions $ Position laserPos)
     Vector.forM_ collisions $ Aztecs.despawn . fst
+
+emptySpecial :: forall m. (Monad m) => Special m
+emptySpecial = Special' @m $ const $ pure ()
 
 render :: forall m. (Monad m) => State m -> m Render
 render (State world) = fst <$> Aztecs.runAccess doRender world
