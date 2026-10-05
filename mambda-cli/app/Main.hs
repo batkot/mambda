@@ -22,89 +22,89 @@ import Mambda.Game qualified as Game (PlayerId (..), Seed (..))
 import System.Random (randomIO)
 
 data MambdaCliState = MambdaCliState
-    { currentScreen :: MambdaScreen
-    , screenHistory :: [MambdaScreen]
-    }
-    deriving stock (Generic)
+  { currentScreen :: MambdaScreen
+  , screenHistory :: [MambdaScreen]
+  }
+  deriving stock (Generic)
 
 data MambdaScreen
-    = Menu (MainMenu.State MenuItem)
-    | Game Game.State
-    | Settings (Settings.State MambdaCliResource MambdaEvent)
+  = Menu (MainMenu.State MenuItem)
+  | Game Game.State
+  | Settings (Settings.State MambdaCliResource MambdaEvent)
 
 data MambdaCliResource = MambdaCliResource
-    deriving stock (Show, Eq, Ord)
+  deriving stock (Show, Eq, Ord)
 
 data MenuItem = MenuItem
-    { label :: Text.Text
-    , transitionTo :: MambdaScreen
-    }
+  { label :: Text.Text
+  , transitionTo :: MambdaScreen
+  }
 
 instance MainMenu.MenuItem MenuItem where
-    toMenuItem MenuItem{label} = label
+  toMenuItem MenuItem{label} = label
 
 data MambdaEvent = Tick
 
 mainMenu :: Game.Seed -> Settings.Settings -> NonEmpty MenuItem
 mainMenu seed settings =
-    MenuItem{label = "Classic", transitionTo = Game $ Game.initState (NonEmpty.singleton Game.One) seed settings}
-        :| [ MenuItem{label = "Versus Mode", transitionTo = Game $ Game.initState (Game.One :| [Game.Two]) seed settings}
-           , MenuItem{label = "Settings", transitionTo = Settings $ Settings.initState settings}
-           ]
+  MenuItem{label = "Classic", transitionTo = Game $ Game.initState (NonEmpty.singleton Game.One) seed settings}
+    :| [ MenuItem{label = "Versus Mode", transitionTo = Game $ Game.initState (Game.One :| [Game.Two]) seed settings}
+       , MenuItem{label = "Settings", transitionTo = Settings $ Settings.initState settings}
+       ]
 
 main :: IO ()
 main = do
-    tickChan <- BChan.newBChan 10
-    void $ Concurrent.forkIO $ forever $ do
-        BChan.writeBChan tickChan Tick
-        Concurrent.threadDelay 250_000
-    initVty <- buildVty
-    seed <- Game.Seed <$> randomIO
-    void $ Brick.customMain initVty buildVty (Just tickChan) app $ MambdaCliState (Menu $ MainMenu.initState $ mainMenu seed Settings.defaultSettings) mempty
-  where
-    buildVty = VtyX.mkVty Vty.defaultConfig
-    app :: Brick.App MambdaCliState MambdaEvent MambdaCliResource
-    app =
-        Brick.App
-            { appDraw = drawUI
-            , appChooseCursor = \_ _ -> Nothing
-            , appHandleEvent = handleEvent
-            , appStartEvent = pure ()
-            , appAttrMap = appAttrMap
-            }
+  tickChan <- BChan.newBChan 10
+  void $ Concurrent.forkIO $ forever $ do
+    BChan.writeBChan tickChan Tick
+    Concurrent.threadDelay 250_000
+  initVty <- buildVty
+  seed <- Game.Seed <$> randomIO
+  void $ Brick.customMain initVty buildVty (Just tickChan) app $ MambdaCliState (Menu $ MainMenu.initState $ mainMenu seed Settings.defaultSettings) mempty
+ where
+  buildVty = VtyX.mkVty Vty.defaultConfig
+  app :: Brick.App MambdaCliState MambdaEvent MambdaCliResource
+  app =
+    Brick.App
+      { appDraw = drawUI
+      , appChooseCursor = \_ _ -> Nothing
+      , appHandleEvent = handleEvent
+      , appStartEvent = pure ()
+      , appAttrMap = appAttrMap
+      }
 
-    appAttrMap MambdaCliState{currentScreen} = case currentScreen of
-        Menu _ -> MainMenu.attributeMap
-        Game _ -> Game.attributeMap
-        Settings _ -> Settings.attributeMap
-    handleEvent :: Brick.BrickEvent MambdaCliResource MambdaEvent -> Brick.EventM MambdaCliResource MambdaCliState ()
-    handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'q') [])) = Brick.halt
-    handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEsc [])) = do
-        MambdaCliState{screenHistory} <- Brick.get
-        case screenHistory of
-            [] -> Brick.halt
-            x : xs -> Brick.put $ MambdaCliState x xs
-    handleEvent ev = do
-        MambdaCliState{currentScreen, screenHistory} <- Brick.get
-        case currentScreen of
-            Menu menuState -> do
-                (newMenuState, proceed) <- Brick.nestEventM menuState (MainMenu.handleEvent ev)
-                case proceed of
-                    Nothing -> Brick.modify $ #currentScreen .~ Menu newMenuState
-                    Just MenuItem{transitionTo} -> Brick.put $ MambdaCliState transitionTo (currentScreen : screenHistory)
-            Game gameState -> do
-                newGameState <- Brick.nestEventM' gameState (Game.handleEvent ev)
-                Brick.modify $ #currentScreen .~ Game newGameState
-            Settings settingsState -> do
-                (newSettingsState, done) <- Brick.nestEventM settingsState (Settings.handleEvent ev)
-                case done of
-                    Just settings -> do
-                        seed <- Game.Seed <$> randomIO
-                        Brick.put $ MambdaCliState (Menu . MainMenu.initState . mainMenu seed $ settings) (currentScreen : screenHistory)
-                    Nothing -> Brick.modify $ #currentScreen .~ Settings newSettingsState
+  appAttrMap MambdaCliState{currentScreen} = case currentScreen of
+    Menu _ -> MainMenu.attributeMap
+    Game _ -> Game.attributeMap
+    Settings _ -> Settings.attributeMap
+  handleEvent :: Brick.BrickEvent MambdaCliResource MambdaEvent -> Brick.EventM MambdaCliResource MambdaCliState ()
+  handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'q') [])) = Brick.halt
+  handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEsc [])) = do
+    MambdaCliState{screenHistory} <- Brick.get
+    case screenHistory of
+      [] -> Brick.halt
+      x : xs -> Brick.put $ MambdaCliState x xs
+  handleEvent ev = do
+    MambdaCliState{currentScreen, screenHistory} <- Brick.get
+    case currentScreen of
+      Menu menuState -> do
+        (newMenuState, proceed) <- Brick.nestEventM menuState (MainMenu.handleEvent ev)
+        case proceed of
+          Nothing -> Brick.modify $ #currentScreen .~ Menu newMenuState
+          Just MenuItem{transitionTo} -> Brick.put $ MambdaCliState transitionTo (currentScreen : screenHistory)
+      Game gameState -> do
+        newGameState <- Brick.nestEventM' gameState (Game.handleEvent ev)
+        Brick.modify $ #currentScreen .~ Game newGameState
+      Settings settingsState -> do
+        (newSettingsState, done) <- Brick.nestEventM settingsState (Settings.handleEvent ev)
+        case done of
+          Just settings -> do
+            seed <- Game.Seed <$> randomIO
+            Brick.put $ MambdaCliState (Menu . MainMenu.initState . mainMenu seed $ settings) (currentScreen : screenHistory)
+          Nothing -> Brick.modify $ #currentScreen .~ Settings newSettingsState
 
-    drawUI :: MambdaCliState -> [Brick.Widget MambdaCliResource]
-    drawUI MambdaCliState{currentScreen} = case currentScreen of
-        Menu menuState -> [MainMenu.render menuState]
-        Game gameState -> [Game.render gameState]
-        Settings settingsState -> [Settings.render settingsState]
+  drawUI :: MambdaCliState -> [Brick.Widget MambdaCliResource]
+  drawUI MambdaCliState{currentScreen} = case currentScreen of
+    Menu menuState -> [MainMenu.render menuState]
+    Game gameState -> [Game.render gameState]
+    Settings settingsState -> [Settings.render settingsState]

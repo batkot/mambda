@@ -1,12 +1,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Mambda.Widgets.MainMenu (
-    State,
-    initState,
-    render,
-    handleEvent,
-    MenuItem (..),
-    attributeMap,
+  State,
+  initState,
+  render,
+  handleEvent,
+  MenuItem (..),
+  attributeMap,
 ) where
 
 import Prelude
@@ -29,58 +29,58 @@ import Mambda.Widgets.Cursor qualified as Cursor
 import Mambda.Widgets.ListZipper
 
 class MenuItem a where
-    toMenuItem :: a -> Text.Text
+  toMenuItem :: a -> Text.Text
 
 data State a = State
-    { tick :: Integer
-    , menuItems :: ListZipper a
-    }
-    deriving stock (Show, Eq, Ord, Generic)
+  { tick :: Integer
+  , menuItems :: ListZipper a
+  }
+  deriving stock (Show, Eq, Ord, Generic)
 
 initState :: NonEmpty a -> State a
 initState = State 0 . fromNonEmpty
 
 logo :: Integer -> Brick.Widget n
 logo offset =
-    Brick.vBox logoLines
-  where
-    attrs = Prelude.drop (fromInteger (offset `mod` 6)) $ Prelude.cycle $ replicate 3 brightAttr <> replicate 3 greenAttr
-    logoLine attr line = Brick.withAttr attr $ Brick.str $ Text.unpack line
-    logoLines = Prelude.zipWith logoLine attrs $ Text.lines $ Text.decodeUtf8 $ $(FileEmbed.embedFileRelative "data/logo.txt")
+  Brick.vBox logoLines
+ where
+  attrs = Prelude.drop (fromInteger (offset `mod` 6)) $ Prelude.cycle $ replicate 3 brightAttr <> replicate 3 greenAttr
+  logoLine attr line = Brick.withAttr attr $ Brick.str $ Text.unpack line
+  logoLines = Prelude.zipWith logoLine attrs $ Text.lines $ Text.decodeUtf8 $ $(FileEmbed.embedFileRelative "data/logo.txt")
 
 handleEvent :: Brick.BrickEvent n e -> Brick.EventM n (State a) (Maybe a)
 handleEvent (Brick.AppEvent _) = do
-    Brick.modify $ #tick +~ 1
-    pure Nothing
+  Brick.modify $ #tick +~ 1
+  pure Nothing
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) = do
-    Brick.modify $ #menuItems %~ next
-    pure Nothing
+  Brick.modify $ #menuItems %~ next
+  pure Nothing
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KUp [])) = do
-    Brick.modify $ #menuItems %~ previous
-    pure Nothing
+  Brick.modify $ #menuItems %~ previous
+  pure Nothing
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) = do
-    Brick.gets $ Just . current . view #menuItems
+  Brick.gets $ Just . current . view #menuItems
 handleEvent _ = pure Nothing
 
 render :: (MenuItem a) => State a -> Brick.Widget n
 render State{menuItems, tick} =
-    Brick.center $
-        Brick.vCenter (logo tick <=> Brick.str " " <=> menu)
-  where
-    menu = Brick.vBox $ renderZipper f menuItems
-    f False = renderMenuItem $ Brick.str " "
-    f True = renderMenuItem $ Cursor.cursorFrame tick
+  Brick.center $
+    Brick.vCenter (logo tick <=> Brick.str " " <=> menu)
+ where
+  menu = Brick.vBox $ renderZipper f menuItems
+  f False = renderMenuItem $ Brick.str " "
+  f True = renderMenuItem $ Cursor.cursorFrame tick
 
 renderMenuItem :: (MenuItem a) => Brick.Widget n -> a -> Brick.Widget n
 renderMenuItem selector menuItem = selector <+> Brick.str (Text.unpack $ " " <> toMenuItem menuItem)
 
 attributeMap :: Brick.AttrMap
 attributeMap =
-    Brick.attrMap
-        Vty.defAttr
-        [ (brightAttr, Brick.fg Vty.brightGreen)
-        , (greenAttr, Brick.fg Vty.green)
-        ]
+  Brick.attrMap
+    Vty.defAttr
+    [ (brightAttr, Brick.fg Vty.brightGreen)
+    , (greenAttr, Brick.fg Vty.green)
+    ]
 
 brightAttr :: Brick.AttrName
 brightAttr = Brick.attrName "bright"

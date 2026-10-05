@@ -1,13 +1,13 @@
 module Mambda.Widgets.ListZipper (
-    ListZipper,
-    next,
-    current,
-    previous,
-    renderZipper,
-    fromNonEmpty,
-    swapCurrent,
-    modifyCurrent,
-    trySelect,
+  ListZipper,
+  next,
+  current,
+  previous,
+  renderZipper,
+  fromNonEmpty,
+  swapCurrent,
+  modifyCurrent,
+  trySelect,
 ) where
 
 import Prelude hiding (flip)
@@ -16,11 +16,11 @@ import Data.List qualified as List
 import Data.List.NonEmpty as NonEmpty
 
 data ListZipper a = ListZipper
-    { before :: ![a]
-    , current :: !a
-    , after :: ![a]
-    }
-    deriving stock (Show, Eq, Ord, Functor)
+  { before :: ![a]
+  , current :: !a
+  , after :: ![a]
+  }
+  deriving stock (Show, Eq, Ord, Functor)
 
 next :: ListZipper a -> ListZipper a
 next (ListZipper prev curr []) = fromNonEmpty $ NonEmpty.reverse $ curr :| prev
@@ -47,8 +47,8 @@ flip (ListZipper prev curr n) = ListZipper n curr prev
 
 trySelect :: (Eq a) => a -> ListZipper a -> ListZipper a
 trySelect a zipper
-    | a == current zipper = zipper
-    | otherwise = trySelect a $ next zipper
+  | a == current zipper = zipper
+  | otherwise = trySelect a $ next zipper
 
 type IsCurrent = Bool
 

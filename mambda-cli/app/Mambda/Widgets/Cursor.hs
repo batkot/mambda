@@ -1,5 +1,5 @@
 module Mambda.Widgets.Cursor (
-    cursorFrame,
+  cursorFrame,
 ) where
 
 import Brick qualified
