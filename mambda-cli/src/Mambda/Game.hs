@@ -127,7 +127,7 @@ spawnEntity :: forall m. (Monad m) => (Space -> Aztecs.BundleT m) -> Aztecs.Acce
 spawnEntity toSpawn = do
   takenSpots <- Aztecs.system $ Aztecs.runQuery $ Aztecs.query @m @Position
   World{size = V2 width height, seed, tick} <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.query @m @World
-  let free = NonEmpty.nonEmpty [Position (V2 w h) | w <- [0 .. width], h <- [0 .. height], Vector.notElem (Position (V2 w h)) takenSpots]
+  let free = NonEmpty.nonEmpty [Position (V2 w h) | w <- [0 .. width - 1], h <- [0 .. height - 1], Vector.notElem (Position (V2 w h)) takenSpots]
   case free of
     Nothing -> pure ()
     Just available -> Aztecs.spawn_ $ toSpawn $ (\(Position x) -> x) $ pick (foo seed tick) available
@@ -135,7 +135,7 @@ spawnEntity toSpawn = do
 pick :: Seed -> NonEmpty a -> a
 pick (Seed seed) elements = elements !! index
  where
-  index = fst $ Random.uniformR (0, NonEmpty.length elements) stdGen
+  index = fst $ Random.uniformR (0, NonEmpty.length elements - 1) stdGen
   stdGen = Random.mkStdGen $ fromInteger seed
 
 appleCollision :: (Monad m, Typeable m) => Scores -> CollisionAction m
@@ -359,9 +359,11 @@ laserItem =
     fromMaybe (pure ()) $ fireLaser <$> posMb <*> velMb
 
 fireLaser :: (Monad m, Typeable m) => Position -> Velocity -> Aztecs.Access m ()
-fireLaser (Position (V2 startX startY)) (Velocity (V2 dirX dirY)) = do
+fireLaser (Position pos) (Velocity vel) = do
   World{size = V2 width height} <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
-  forM_ (Vector.generate (fromInteger $ max width height) (\x -> V2 (max 0 (min (width - 1) (startX + toInteger x * dirX))) (max 0 (min (height - 1) (startY + toInteger x * dirY))))) $ \laserPos -> do
+  let inWorldBounds (V2 x y) = 0 <= x && x < width && 0 <= y && y < height
+      laserBeam = NonEmpty.takeWhile inWorldBounds $ NonEmpty.iterate (+ vel) pos
+  forM_ laserBeam $ \laserPos -> do
     Aztecs.spawn_ $
       Aztecs.bundle (Position laserPos)
         <> Aztecs.bundle (Renderable LaserBeam)
