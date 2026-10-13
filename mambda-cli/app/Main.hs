@@ -62,7 +62,7 @@ main :: IO ()
 main = do
   tickChan <- BChan.newBChan 10
   void $ Concurrent.forkIO $ forever $ do
-    let timerRate :: NominalDiffTime = 1 / 30
+    let timerRate :: NominalDiffTime = 1 / 4
     BChan.writeBChan tickChan $ Elapsed timerRate
     Concurrent.threadDelay $ fromEnum $ realToFrac @_ @(Fixed E6) $ nominalDiffTimeToSeconds timerRate
   initVty <- buildVty

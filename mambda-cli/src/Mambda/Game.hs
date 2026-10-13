@@ -38,6 +38,7 @@ import Data.Word (Word8)
 import Linear
 import System.Random qualified as Random
 import Data.Time qualified as Time
+import Data.Fixed
 
 newtype State m = State (Aztecs.World m)
 
@@ -65,12 +66,12 @@ newtype Seed = Seed Integer
   deriving (Show)
 
 foo :: Seed -> Ticks -> Seed
-foo (Seed x) y = Seed $ x
+foo (Seed x) y = Seed $ x + toInteger (fromEnum $ realToFrac @_ @(Fixed E12) $ Time.nominalDiffTimeToSeconds y)
 
 data World = World
   { size :: Space
   , seed :: Seed
-  , tick :: Ticks
+  , clock :: Ticks
   }
   deriving stock (Show)
   deriving anyclass (Aztecs.Component m)
@@ -127,11 +128,11 @@ score entity (Scores score') = do
 spawnEntity :: forall m. (Monad m) => (Space -> Aztecs.BundleT m) -> Aztecs.Access m ()
 spawnEntity toSpawn = do
   takenSpots <- Aztecs.system $ Aztecs.runQuery $ Aztecs.query @m @Position
-  World{size = V2 width height, seed, tick} <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.query @m @World
+  World{size = V2 width height, seed, clock} <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.query @m @World
   let free = NonEmpty.nonEmpty [Position (V2 w h) | w <- [0 .. width - 1], h <- [0 .. height - 1], Vector.notElem (Position (V2 w h)) takenSpots]
   case free of
     Nothing -> pure ()
-    Just available -> Aztecs.spawn_ $ toSpawn $ (\(Position x) -> x) $ pick (foo seed tick) available
+    Just available -> Aztecs.spawn_ $ toSpawn $ (\(Position x) -> x) $ pick (foo seed clock) available
 
 pick :: Seed -> NonEmpty a -> a
 pick (Seed seed) elements = elements !! index
@@ -143,7 +144,7 @@ appleCollision :: (Monad m, Typeable m) => Scores -> CollisionAction m
 appleCollision scores appleEntityId snakeEntityId = do
   score snakeEntityId scores
   void $ Aztecs.despawn appleEntityId
-  World{tick} <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
+  World{clock} <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
   spawnEntity apple
 
 despawnCollision :: (Monad m) => CollisionAction m
@@ -174,8 +175,11 @@ type Ticks = Time.NominalDiffTime
 
 newtype Scores = Scores Integer
 
-newtype Lifetime = Lifetime Integer
+newtype Lifetime = Lifetime Time.NominalDiffTime
   deriving stock (Show)
+  deriving anyclass (Aztecs.Component m)
+
+newtype SnakeSegment = SnakeSegment' Integer
   deriving anyclass (Aztecs.Component m)
 
 newtype SnakeDirection = SnakeDirection Space
@@ -221,9 +225,6 @@ left = SnakeDirection $ V2 0 (-1)
 right :: SnakeDirection
 right = SnakeDirection $ V2 0 1
 
-isDead :: Lifetime -> Bool
-isDead (Lifetime x) = x <= 0
-
 data WorldSettings = WorldSettings
   { width :: Word8
   , height :: Word8
@@ -242,11 +243,11 @@ snakeHead playerId =
       Two -> Position (V2 19 19)
 
 snakeSegment :: forall m. (Monad m, Typeable m) => PlayerId -> Aztecs.EntityID -> Space -> Integer -> Aztecs.BundleT m
-snakeSegment playerId snakeHeadId pos lifetime =
+snakeSegment playerId snakeHeadId pos score =
   Aztecs.bundle (Position pos)
     <> Aztecs.bundle (Renderable (SnakeSegment playerId))
     <> Aztecs.bundle (Collidable @m despawnCollision)
-    <> Aztecs.bundle (Lifetime lifetime)
+    <> Aztecs.bundle (SnakeSegment' score)
     <> Aztecs.bundle (Aztecs.Parent snakeHeadId)
 
 apple :: forall m. (Monad m, Typeable m) => Space -> Aztecs.BundleT m
@@ -269,8 +270,8 @@ initWorld players seed WorldSettings{width, height} = do
   void $ Aztecs.spawn $ Aztecs.bundle (World (V2 (toInteger height) (toInteger width)) seed 0)
   forM_ players $ Aztecs.spawn . snakeHead
   Aztecs.spawn_ $ Aztecs.bundle (Position (V2 10 10)) <> bombItem <> Aztecs.bundle (Renderable Laser)
-  --   void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable @m (teleportCollision (V2 2 2))) <> Aztecs.bundle (Renderable Portal)
-  --   void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 19)) <> Aztecs.bundle (Collidable @m (appleCollision (Scores (-5)))) <> Aztecs.bundle (Renderable Poison)
+  -- void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable @m (teleportCollision (V2 2 2))) <> Aztecs.bundle (Renderable Portal)
+  -- void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 19)) <> Aztecs.bundle (Lifetime 5) <> Aztecs.bundle (Renderable Poison)
   forM_ walls $ \(x, y) -> wall $ V2 x y
   forM_ borders $ \(h, w) ->
     let (exitH, exitW) =
@@ -303,7 +304,6 @@ init players seed worldSettings = State . snd <$> Aztecs.runAccess (initWorld pl
 gameStep :: (Monad m, Typeable m) => Ticks -> InputQueue -> Aztecs.Access m Bool
 gameStep dt playerInput = do
   timeSystem dt
-  lifetimeSystem
   playerActionSystem playerInput
   snakeGhostSystem
   moveSystem
@@ -311,22 +311,22 @@ gameStep dt playerInput = do
   endGameSystem
 
 timeSystem :: (Monad m) => Ticks -> Aztecs.Access m ()
-timeSystem dt = void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\w@World{tick} -> w{tick = tick + dt})
+timeSystem dt = do
+  World{clock} <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.queryMap (\w@World{clock} -> w{clock = clock + dt})
+  dead <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(_, Lifetime x) -> x < clock) ((,) <$> Aztecs.entity <*> Aztecs.query)
+  Vector.forM_ dead $ \(entityId, _) -> Aztecs.despawn entityId
 
 moveSystem :: (Monad m) => Aztecs.Access m ()
-moveSystem = void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMapWith move Aztecs.query
+moveSystem = do
+  void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMapWith move Aztecs.query
  where
   move (Velocity v) (Position pos) = Position $ pos + v
 
 snakeGhostSystem :: (Monad m, Typeable m) => Aztecs.Access m ()
 snakeGhostSystem = do
   snakes <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(_, _, _, Velocity v) -> v /= V2 0 0) $ (,,,) <$> Aztecs.entity <*> Aztecs.query <*> Aztecs.query <*> Aztecs.query
-  Vector.forM_ snakes $ \(snakeEntityId, SnakeHead pId l _, Position pos, _) -> Aztecs.spawn_ $ snakeSegment pId snakeEntityId pos $ toInteger l
-
-lifetimeSystem :: (Monad m) => Aztecs.Access m ()
-lifetimeSystem = do
-  dead <- fmap (Vector.filter (isDead . snd)) $ Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.entity <*> Aztecs.queryMap (\(Lifetime x) -> Lifetime $ max 0 $ x - 1)
-  Vector.forM_ dead $ \(entityId, _) -> Aztecs.despawn entityId
+  Vector.forM_ snakes $ \(snakeEntityId, SnakeHead pId l _, Position pos, _) ->
+    Aztecs.spawn_ $ snakeSegment pId snakeEntityId pos $ toInteger l
 
 endGameSystem :: (Monad m) => Aztecs.Access m Bool
 endGameSystem = fmap Vector.null $ Aztecs.system $ Aztecs.runQuery $ Aztecs.query @_ @SnakeHead
@@ -361,14 +361,14 @@ laserItem =
 
 fireLaser :: (Monad m, Typeable m) => Position -> Velocity -> Aztecs.Access m ()
 fireLaser (Position pos) (Velocity vel) = do
-  World{size = V2 width height} <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
+  World{size = V2 width height, clock} <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
   let inWorldBounds (V2 x y) = 0 <= x && x < width && 0 <= y && y < height
       laserBeam = NonEmpty.takeWhile inWorldBounds $ NonEmpty.iterate (+ vel) pos
   forM_ laserBeam $ \laserPos -> do
     Aztecs.spawn_ $
       Aztecs.bundle (Position laserPos)
         <> Aztecs.bundle (Renderable LaserBeam)
-        <> Aztecs.bundle (Lifetime 1)
+        <> Aztecs.bundle (Lifetime $ clock + 0.25)
     collisions <- Aztecs.system $ Aztecs.runQuery (findCollisions $ Position laserPos)
     Vector.forM_ collisions $ Aztecs.despawn . fst
 

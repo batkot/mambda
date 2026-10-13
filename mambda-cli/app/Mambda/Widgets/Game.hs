@@ -13,6 +13,7 @@ import Data.Functor.Identity
 import Brick qualified
 import Brick.Widgets.Center qualified as Brick
 import Mambda.Game qualified as Game
+import Mambda.Clock qualified as Clock
 
 import Brick ((<=>))
 import Brick.Widgets.Border qualified as Brick
@@ -98,11 +99,11 @@ boolToState :: Bool -> GameState
 boolToState True = Finished
 boolToState False = Running
 
-handleEvent :: Brick.BrickEvent n e -> Brick.EventM n State ()
-handleEvent (Brick.AppEvent _) = do
+handleEvent :: (Clock.WithClock e) => Brick.BrickEvent n e -> Brick.EventM n State ()
+handleEvent (Brick.AppEvent e) = do
   paused <- Brick.gets $ (==) Paused . view #state
   unless paused $ Brick.modify $ \s ->
-    let (state, game) = runIdentity $ first boolToState <$> Game.step 1 (s ^. #inputQueue) (s ^. #game)
+    let (state, game) = runIdentity $ first boolToState <$> Game.step (Clock.timeElapsed e) (s ^. #inputQueue) (s ^. #game)
         frame = runIdentity $ Game.render game
      in s & #game .~ game & #state .~ state & #currentFrame .~ frame & #inputQueue .~ Game.initInputQueue
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) = do
