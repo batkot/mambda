@@ -1,15 +1,17 @@
 module Mambda.Movement (
-  Velocity(..),
-  Direction(..),
-  Positioned(..),
-  Moving(..),
+  Velocity (..),
+  Direction (..),
+  Positioned (..),
+  Moving (..),
   up,
   down,
   left,
   right,
   moving,
   positioned,
-  moveSystem
+  moveSystem,
+  -- TMP
+  shouldMove,
 ) where
 
 import Prelude
@@ -51,27 +53,29 @@ data Moving = Moving
   }
   deriving anyclass (Aztecs.Component m)
 
-positioned :: Monad m => Space -> Aztecs.BundleT m
+positioned :: (Monad m) => Space -> Aztecs.BundleT m
 positioned = Aztecs.bundle . Positioned
 
-moving :: Monad m => Time.Clock -> Space -> Velocity -> Aztecs.BundleT m
+moving :: (Monad m) => Time.Clock -> Space -> Velocity -> Aztecs.BundleT m
 moving clock position vel@Velocity{period} =
   positioned position
     <> Aztecs.bundle (Moving vel $ Time.schedule period clock)
 
-moveSystem :: Monad m => Time.Clock -> Aztecs.Access m ()
+moveSystem :: (Monad m) => Time.Clock -> Aztecs.Access m ()
 moveSystem clock = do
   _ <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMapWith move' Aztecs.query
   _ <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap nextMove
   pure ()
-  where
-    move' m@(Moving (Velocity dir _) _) p@(Positioned x)
-      | shouldMove m = Positioned $ move dir x
-      | otherwise = p
-    shouldMove (Moving _ nextMove) = nextMove <= Time.time clock
-    nextMove moving@Moving{velocity = Velocity{period}}
-      | shouldMove moving = moving{ nextMove = Time.schedule period clock}
-      | otherwise = moving
+ where
+  move' m@(Moving (Velocity dir _) _) p@(Positioned x)
+    | shouldMove clock m = Positioned $ move dir x
+    | otherwise = p
+  nextMove moving@Moving{velocity = Velocity{period}}
+    | shouldMove clock moving = moving{nextMove = Time.schedule period clock}
+    | otherwise = moving
 
 move :: Direction -> Space -> Space
 move (Direction dir) x = dir + x
+
+shouldMove :: Time.Clock -> Moving -> Bool
+shouldMove clock Moving{nextMove} = nextMove <= Time.time clock

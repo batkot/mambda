@@ -36,9 +36,9 @@ import Data.Typeable (Typeable)
 import Data.Vector qualified as Vector
 import Data.Word (Word8)
 import Linear
-import System.Random qualified as Random
-import Mambda.Time qualified as Time
 import Mambda.Movement qualified as Movement
+import Mambda.Time qualified as Time
+import System.Random qualified as Random
 
 newtype State m = State (Aztecs.World m)
 
@@ -110,11 +110,11 @@ score entity (Scores score') = do
   headMaybe <- Aztecs.lookup @_ @SnakeHead entity
   forM_ headMaybe $ \(SnakeHead player score item) ->
     Aztecs.insertUntracked entity $ Aztecs.bundle $ SnakeHead player (fromInteger $ max 1 $ toInteger score + score') item
-  -- snakeSegments <- maybe mempty Aztecs.unChildren <$> Aztecs.lookup entity
-  -- let bumpLifetime entityId = do
-  --       currentLifetime <- maybe mempty (\(Lifetime x) -> x) <$> Aztecs.lookup entityId
-  --       Aztecs.insertUntracked entityId $ Aztecs.bundle $ Lifetime $ max mempty $ currentLifetime <> fromInteger score'
-  -- traverse_ bumpLifetime snakeSegments
+  snakeSegments <- maybe mempty Aztecs.unChildren <$> Aztecs.lookup entity
+  let bumpLifetime entityId = do
+        currentLifetime <- maybe 0 (\(SnakeSegment' x) -> x) <$> Aztecs.lookup entityId
+        Aztecs.insertUntracked entityId $ Aztecs.bundle $ SnakeSegment' $ max 1 $ currentLifetime + fromInteger score'
+  traverse_ bumpLifetime snakeSegments
 
 spawnEntity :: forall m. (Monad m) => (Space -> Aztecs.BundleT m) -> Aztecs.Access m ()
 spawnEntity toSpawn = do
@@ -292,7 +292,7 @@ gameStep :: (Monad m, Typeable m) => Time.Time -> InputQueue -> Aztecs.Access m 
 gameStep dt playerInput = do
   clock <- timeSystem dt
   playerActionSystem playerInput
-  -- snakeGhostSystem
+  snakeGhostSystem clock
   Movement.moveSystem clock
   collisionSystem
   endGameSystem
@@ -304,11 +304,14 @@ timeSystem dt = do
   Vector.forM_ dead $ \(entityId, _) -> Aztecs.despawn entityId
   pure clock
 
--- snakeGhostSystem :: (Monad m, Typeable m) => Aztecs.Access m ()
--- snakeGhostSystem = do
---   snakes <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(_, _, _, Velocity v) -> v /= V2 0 0) $ (,,,) <$> Aztecs.entity <*> Aztecs.query <*> Aztecs.query <*> Aztecs.query
---   Vector.forM_ snakes $ \(snakeEntityId, SnakeHead pId l _, Position pos, _) ->
---     Aztecs.spawn_ $ snakeSegment pId snakeEntityId pos $ toInteger l
+snakeGhostSystem :: (Monad m, Typeable m) => Time.Clock -> Aztecs.Access m ()
+snakeGhostSystem clock = do
+  snakes <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(_, _, _, m@Movement.Moving{}) -> Movement.shouldMove clock m) $ (,,,) <$> Aztecs.entity <*> Aztecs.query <*> Aztecs.query <*> Aztecs.query
+  Vector.forM_ snakes $ \(snakeEntityId, SnakeHead pId l _, Movement.Positioned pos, _) -> do
+    segments <- fmap (maybe mempty Aztecs.unChildren) (Aztecs.lookup snakeEntityId)
+    x <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(segmentId, _) -> Set.member segmentId segments) $ (,) <$> Aztecs.entity <*> Aztecs.queryMap (\(SnakeSegment' x) -> SnakeSegment' $ x - 1)
+    forM_ x $ \(entityId, SnakeSegment' life) -> when (life <= 0) $ Aztecs.despawn entityId
+    Aztecs.spawn_ $ snakeSegment pId snakeEntityId pos $ toInteger l
 
 endGameSystem :: (Monad m) => Aztecs.Access m Bool
 endGameSystem = fmap Vector.null $ Aztecs.system $ Aztecs.runQuery $ Aztecs.query @_ @SnakeHead
@@ -324,10 +327,10 @@ playerAction (PlayerInput (playerId, ChangeDirection (SnakeDirection dir))) =
   void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(SnakeHead pId _ _, _) -> pId == playerId) ((,) <$> Aztecs.query @_ @SnakeHead <*> Aztecs.queryMap foo)
  where
   foo :: Movement.Moving -> Movement.Moving
-  foo m@Movement.Moving{velocity} = m { Movement.velocity = mapVel velocity}
+  foo m@Movement.Moving{velocity} = m{Movement.velocity = mapVel velocity}
   mapVel vel@(Movement.Velocity (Movement.Direction currentDir) _)
     | currentDir + dir == V2 0 0 = vel
-    | otherwise = vel { Movement.direction = Movement.Direction dir}
+    | otherwise = vel{Movement.direction = Movement.Direction dir}
 playerAction (PlayerInput (pId, Special)) = do
   snakes <- fmap (fmap fst) $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(_, SnakeHead{playerId}) -> playerId == pId) ((,) <$> Aztecs.entity <*> Aztecs.query)
   forM_ snakes $ \snakeEntityId -> do
