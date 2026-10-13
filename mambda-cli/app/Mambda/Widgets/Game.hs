@@ -12,8 +12,8 @@ import Data.Functor.Identity
 
 import Brick qualified
 import Brick.Widgets.Center qualified as Brick
-import Mambda.Game qualified as Game
 import Mambda.Clock qualified as Clock
+import Mambda.Game qualified as Game
 import Mambda.Time qualified as Time
 
 import Brick ((<=>))
@@ -105,7 +105,7 @@ handleEvent :: (Clock.WithClock e) => Brick.BrickEvent n e -> Brick.EventM n Sta
 handleEvent (Brick.AppEvent e) = do
   paused <- Brick.gets $ (==) Paused . view #state
   unless paused $ Brick.modify $ \s ->
-    let (state, game) = runIdentity $ first boolToState <$> Game.step (Time.mkTime 1)  (s ^. #inputQueue) (s ^. #game)
+    let (state, game) = runIdentity $ first boolToState <$> Game.step (Time.mkTime 1) (s ^. #inputQueue) (s ^. #game)
         frame = runIdentity $ Game.render game
      in s & #game .~ game & #state .~ state & #currentFrame .~ frame & #inputQueue .~ Game.initInputQueue
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) = do

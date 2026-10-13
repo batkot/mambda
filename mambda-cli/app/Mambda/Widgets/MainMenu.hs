@@ -22,13 +22,13 @@ import Data.List.NonEmpty
 import Data.Generics.Labels ()
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
+import Data.Time
 import GHC.Generics (Generic)
 import Lens.Micro
 import Lens.Micro.Extras
+import Mambda.Clock
 import Mambda.Widgets.Cursor qualified as Cursor
 import Mambda.Widgets.ListZipper
-import Mambda.Clock
-import Data.Time
 
 class MenuItem a where
   toMenuItem :: a -> Text.Text
@@ -50,7 +50,7 @@ logo offset =
   logoLine attr line = Brick.withAttr attr $ Brick.str $ Text.unpack line
   logoLines = Prelude.zipWith logoLine attrs $ Text.lines $ Text.decodeUtf8 $ $(FileEmbed.embedFileRelative "data/logo.txt")
 
-handleEvent :: WithClock e => Brick.BrickEvent n e -> Brick.EventM n (State a) (Maybe a)
+handleEvent :: (WithClock e) => Brick.BrickEvent n e -> Brick.EventM n (State a) (Maybe a)
 handleEvent (Brick.AppEvent e) = do
   Brick.modify $ #tick +~ timeElapsed e
   pure Nothing

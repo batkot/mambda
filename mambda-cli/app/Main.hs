@@ -17,13 +17,13 @@ import Mambda.Widgets.Game qualified as Game
 import Mambda.Widgets.MainMenu qualified as MainMenu
 import Mambda.Widgets.Settings qualified as Settings
 
-import Data.List.NonEmpty qualified as NonEmpty
-import Mambda.Game qualified as Game (PlayerId (..), Seed (..))
-import System.Random (randomIO)
-import Data.Time
 import Data.Fixed
+import Data.List.NonEmpty qualified as NonEmpty
+import Data.Time
 import Mambda.Clock
+import Mambda.Game qualified as Game (PlayerId (..), Seed (..))
 import Mambda.Time qualified as Time
+import System.Random (randomIO)
 
 data MambdaCliState = MambdaCliState
   { currentScreen :: MambdaScreen
