@@ -12,7 +12,6 @@ import Data.Functor.Identity
 
 import Brick qualified
 import Brick.Widgets.Center qualified as Brick
-import Mambda.Clock qualified as Clock
 import Mambda.Game qualified as Game
 import Mambda.Time qualified as Time
 
@@ -72,6 +71,7 @@ initState clockResolution players seed settings =
     , keyBindings
     , settings
     , players
+    , clockResolution
     }
  where
   game = runIdentity $ Game.init (Time.newClock clockResolution) players seed worldSettings
