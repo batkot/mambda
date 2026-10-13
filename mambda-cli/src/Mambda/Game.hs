@@ -221,13 +221,18 @@ data WorldSettings = WorldSettings
 snakeHead :: (Monad m) => Time.Clock -> PlayerId -> Aztecs.BundleT m
 snakeHead clock playerId =
   Aztecs.bundle (SnakeHead playerId 3 Nothing)
-    <> Movement.moving clock startPos (Movement.Velocity Movement.down (Time.mkTime 16))
+    <> Movement.moving clock startPos (Movement.Velocity Movement.down (Time.mkTime startSpeed))
     <> Aztecs.bundle (Renderable (Snake playerId))
  where
   startPos =
     case playerId of
       One -> V2 1 1
       Two -> V2 19 19
+  startSpeed =
+    case playerId of
+      One -> 16
+      Two -> 8
+
 
 snakeSegment :: forall m. (Monad m, Typeable m) => PlayerId -> Aztecs.EntityID -> Space -> Integer -> Aztecs.BundleT m
 snakeSegment playerId snakeHeadId pos score =
@@ -256,7 +261,7 @@ initWorld :: forall m. (Monad m, Typeable m) => Time.Clock -> NonEmpty PlayerId 
 initWorld clock players seed WorldSettings{width, height} = do
   void $ Aztecs.spawn $ Aztecs.bundle (World (V2 (toInteger height) (toInteger width)) seed clock)
   forM_ players $ Aztecs.spawn . snakeHead clock
-  Aztecs.spawn_ $ Movement.positioned (V2 10 10) <> laserItem <> Aztecs.bundle (Renderable Laser)
+  Aztecs.spawn_ $ Movement.positioned (V2 10 10) <> bombItem <> Aztecs.bundle (Renderable Laser)
   -- void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable @m (teleportCollision (V2 2 2))) <> Aztecs.bundle (Renderable Portal)
   -- void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 19)) <> Aztecs.bundle (Lifetime 5) <> Aztecs.bundle (Renderable Poison)
   forM_ walls $ \(x, y) -> wall $ V2 x y
@@ -308,10 +313,10 @@ snakeGhostSystem :: (Monad m, Typeable m) => Time.Clock -> Aztecs.Access m ()
 snakeGhostSystem clock = do
   snakes <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(_, _, _, m@Movement.Moving{}) -> Movement.shouldMove clock m) $ (,,,) <$> Aztecs.entity <*> Aztecs.query <*> Aztecs.query <*> Aztecs.query
   Vector.forM_ snakes $ \(snakeEntityId, SnakeHead pId l _, Movement.Positioned pos, _) -> do
+    Aztecs.spawn_ $ snakeSegment pId snakeEntityId pos $ toInteger l
     segments <- fmap (maybe mempty Aztecs.unChildren) (Aztecs.lookup snakeEntityId)
     x <- Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(segmentId, _) -> Set.member segmentId segments) $ (,) <$> Aztecs.entity <*> Aztecs.queryMap (\(SnakeSegment' x) -> SnakeSegment' $ x - 1)
     forM_ x $ \(entityId, SnakeSegment' life) -> when (life <= 0) $ Aztecs.despawn entityId
-    Aztecs.spawn_ $ snakeSegment pId snakeEntityId pos $ toInteger l
 
 endGameSystem :: (Monad m) => Aztecs.Access m Bool
 endGameSystem = fmap Vector.null $ Aztecs.system $ Aztecs.runQuery $ Aztecs.query @_ @SnakeHead
@@ -359,11 +364,11 @@ fireLaser (Movement.Positioned pos) (Movement.Velocity (Movement.Direction dir) 
     collisions <- Aztecs.system $ Aztecs.runQuery (findCollisions $ Movement.Positioned laserPos)
     Vector.forM_ collisions $ Aztecs.despawn . fst
 
--- bombItem :: forall m. (Monad m, Typeable m) => Aztecs.BundleT m
--- bombItem =
---   item . Special' @m $ \snakeEntityId -> do
---     (lastSegmentPosition, _, _) <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.queryFilter (\(Position _, Lifetime x, Aztecs.Parent parentId) -> x == 1 && parentId == snakeEntityId) ((,,) <$> Aztecs.query <*> Aztecs.query <*> Aztecs.query)
---     Aztecs.spawn_ $ laserItem <> Aztecs.bundle lastSegmentPosition <> Aztecs.bundle (Renderable Laser)
+bombItem :: forall m. (Monad m, Typeable m) => Aztecs.BundleT m
+bombItem =
+  item . Special' @m $ \snakeEntityId -> do
+    (lastSegmentPosition, _, _) <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.queryFilter (\(Movement.Positioned _, SnakeSegment' x, Aztecs.Parent parentId) -> x == 1 && parentId == snakeEntityId) ((,,) <$> Aztecs.query <*> Aztecs.query <*> Aztecs.query)
+    Aztecs.spawn_ $ laserItem <> Aztecs.bundle lastSegmentPosition <> Aztecs.bundle (Renderable Laser)
 
 emptySpecial :: forall m. (Monad m) => Special m
 emptySpecial = Special' @m $ const $ pure ()
