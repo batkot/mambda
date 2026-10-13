@@ -23,6 +23,7 @@ import System.Random (randomIO)
 import Data.Time
 import Data.Fixed
 import Mambda.Clock
+import Mambda.Time qualified as Time
 
 data MambdaCliState = MambdaCliState
   { currentScreen :: MambdaScreen
@@ -53,16 +54,22 @@ instance WithClock MambdaEvent where
 
 mainMenu :: Game.Seed -> Settings.Settings -> NonEmpty MenuItem
 mainMenu seed settings =
-  MenuItem{label = "Classic", transitionTo = Game $ Game.initState (NonEmpty.singleton Game.One) seed settings}
-    :| [ MenuItem{label = "Versus Mode", transitionTo = Game $ Game.initState (Game.One :| [Game.Two]) seed settings}
+  MenuItem{label = "Classic", transitionTo = Game $ Game.initState res (NonEmpty.singleton Game.One) seed settings}
+    :| [ MenuItem{label = "Versus Mode", transitionTo = Game $ Game.initState res (Game.One :| [Game.Two]) seed settings}
        , MenuItem{label = "Settings", transitionTo = Settings $ Settings.initState settings}
        ]
+
+clockResolution :: Integer
+clockResolution = 60
+
+res :: Time.Resolution
+res = Time.Resolution clockResolution
 
 main :: IO ()
 main = do
   tickChan <- BChan.newBChan 10
   void $ Concurrent.forkIO $ forever $ do
-    let timerRate :: NominalDiffTime = 1 / 4
+    let timerRate :: NominalDiffTime = 1 / fromInteger clockResolution
     BChan.writeBChan tickChan $ Elapsed timerRate
     Concurrent.threadDelay $ fromEnum $ realToFrac @_ @(Fixed E6) $ nominalDiffTimeToSeconds timerRate
   initVty <- buildVty

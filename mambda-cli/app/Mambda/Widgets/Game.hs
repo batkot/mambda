@@ -14,6 +14,7 @@ import Brick qualified
 import Brick.Widgets.Center qualified as Brick
 import Mambda.Game qualified as Game
 import Mambda.Clock qualified as Clock
+import Mambda.Time qualified as Time
 
 import Brick ((<=>))
 import Brick.Widgets.Border qualified as Brick
@@ -43,6 +44,7 @@ data State = State
   , keyBindings :: KeyMap
   , settings :: S.Settings
   , players :: NonEmpty Game.PlayerId
+  , clockResolution :: Time.Resolution
   }
   deriving stock (Generic)
 
@@ -60,8 +62,8 @@ renderGlyph Game.Poison = Brick.withAttr poisonAttr $ Brick.str "██"
 renderGlyph Game.LaserBeam = Brick.withAttr laserBeamAttr $ Brick.str "╪╪"
 renderGlyph Game.Laser = Brick.withAttr laserAttr $ Brick.str "█▃"
 
-initState :: NonEmpty Game.PlayerId -> Game.Seed -> S.Settings -> State
-initState players seed settings =
+initState :: Time.Resolution -> NonEmpty Game.PlayerId -> Game.Seed -> S.Settings -> State
+initState clockResolution players seed settings =
   State
     { game
     , state = Running
@@ -72,7 +74,7 @@ initState players seed settings =
     , players
     }
  where
-  game = runIdentity $ Game.init players seed worldSettings
+  game = runIdentity $ Game.init (Time.newClock clockResolution) players seed worldSettings
   currentFrame = runIdentity $ Game.render game
   worldSettings = worldSizeToSettings $ settings ^. #worldSize
   keyBindings = mkKeyBindings $ settings ^. #keyBindings
@@ -103,7 +105,7 @@ handleEvent :: (Clock.WithClock e) => Brick.BrickEvent n e -> Brick.EventM n Sta
 handleEvent (Brick.AppEvent e) = do
   paused <- Brick.gets $ (==) Paused . view #state
   unless paused $ Brick.modify $ \s ->
-    let (state, game) = runIdentity $ first boolToState <$> Game.step (Clock.timeElapsed e) (s ^. #inputQueue) (s ^. #game)
+    let (state, game) = runIdentity $ first boolToState <$> Game.step (Time.mkTime 1)  (s ^. #inputQueue) (s ^. #game)
         frame = runIdentity $ Game.render game
      in s & #game .~ game & #state .~ state & #currentFrame .~ frame & #inputQueue .~ Game.initInputQueue
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) = do
@@ -111,7 +113,7 @@ handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) = do
   case gameStatus of
     Finished -> do
       newSeed <- Game.Seed <$> randomIO
-      Brick.modify $ \s@(State _ r _ _ _ settings players) -> if r == Finished then initState players newSeed settings else s
+      Brick.modify $ \s@(State _ r _ _ _ settings players clock) -> if r == Finished then initState clock players newSeed settings else s
     _ -> pure ()
 handleEvent (Brick.VtyEvent (Vty.EvKey (Vty.KChar 'p') [])) = do
   gameState <- Brick.gets $ view #state

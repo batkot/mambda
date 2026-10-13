@@ -26,6 +26,8 @@ source-repository head
 library
   exposed-modules:
       Mambda.Game
+      Mambda.Movement
+      Mambda.Time
   other-modules:
       Paths_mambda_cli
   hs-source-dirs:
