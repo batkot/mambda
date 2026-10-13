@@ -135,8 +135,9 @@ appleCollision :: (Monad m, Typeable m) => Scores -> CollisionAction m
 appleCollision scores appleEntityId snakeEntityId = do
   score snakeEntityId scores
   void $ Aztecs.despawn appleEntityId
-  World{clock} <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
-  spawnEntity apple
+  World{clock, seed} <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
+  let nextFood = pick (mkSeed seed clock) $ goldenApple :| replicate 9 apple
+  spawnEntity nextFood
 
 despawnCollision :: (Monad m) => CollisionAction m
 despawnCollision _ = Aztecs.despawn
@@ -232,7 +233,6 @@ snakeHead clock playerId =
     case playerId of
       One -> 16
       Two -> 8
-
 
 snakeSegment :: forall m. (Monad m, Typeable m) => PlayerId -> Aztecs.EntityID -> Space -> Integer -> Aztecs.BundleT m
 snakeSegment playerId snakeHeadId pos score =
