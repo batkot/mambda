@@ -263,7 +263,7 @@ initWorld clock players seed WorldSettings{width, height} = do
   forM_ players $ Aztecs.spawn . snakeHead clock
   Aztecs.spawn_ $ Movement.positioned (V2 10 10) <> bombItem <> Aztecs.bundle (Renderable Laser)
   -- void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 10)) <> Aztecs.bundle (Collidable @m (teleportCollision (V2 2 2))) <> Aztecs.bundle (Renderable Portal)
-  -- void $ Aztecs.spawn $ Aztecs.bundle (Position (V2 10 19)) <> Aztecs.bundle (Lifetime 5) <> Aztecs.bundle (Renderable Poison)
+  void $ Aztecs.spawn $ Movement.positioned (V2 10 19) <> Aztecs.bundle (Lifetime $ Time.scheduleTime 5 clock) <> Aztecs.bundle (Renderable Poison)
   forM_ walls $ \(x, y) -> wall $ V2 x y
   forM_ borders $ \(h, w) ->
     let (exitH, exitW) =

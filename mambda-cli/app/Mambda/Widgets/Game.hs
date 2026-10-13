@@ -101,8 +101,8 @@ boolToState :: Bool -> GameState
 boolToState True = Finished
 boolToState False = Running
 
-handleEvent :: (Clock.WithClock e) => Brick.BrickEvent n e -> Brick.EventM n State ()
-handleEvent (Brick.AppEvent e) = do
+handleEvent :: Brick.BrickEvent n e -> Brick.EventM n State ()
+handleEvent (Brick.AppEvent _) = do
   paused <- Brick.gets $ (==) Paused . view #state
   unless paused $ Brick.modify $ \s ->
     let (state, game) = runIdentity $ first boolToState <$> Game.step (Time.mkTime 1) (s ^. #inputQueue) (s ^. #game)
