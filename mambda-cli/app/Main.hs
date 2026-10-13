@@ -20,6 +20,9 @@ import Mambda.Widgets.Settings qualified as Settings
 import Data.List.NonEmpty qualified as NonEmpty
 import Mambda.Game qualified as Game (PlayerId (..), Seed (..))
 import System.Random (randomIO)
+import Data.Time
+import Data.Fixed
+import Mambda.Clock
 
 data MambdaCliState = MambdaCliState
   { currentScreen :: MambdaScreen
@@ -43,7 +46,10 @@ data MenuItem = MenuItem
 instance MainMenu.MenuItem MenuItem where
   toMenuItem MenuItem{label} = label
 
-data MambdaEvent = Tick
+newtype MambdaEvent = Elapsed NominalDiffTime
+
+instance WithClock MambdaEvent where
+  timeElapsed (Elapsed x) = x
 
 mainMenu :: Game.Seed -> Settings.Settings -> NonEmpty MenuItem
 mainMenu seed settings =
@@ -56,8 +62,9 @@ main :: IO ()
 main = do
   tickChan <- BChan.newBChan 10
   void $ Concurrent.forkIO $ forever $ do
-    BChan.writeBChan tickChan Tick
-    Concurrent.threadDelay 250_000
+    let timerRate :: NominalDiffTime = 1 / 30
+    BChan.writeBChan tickChan $ Elapsed timerRate
+    Concurrent.threadDelay $ fromEnum $ realToFrac @_ @(Fixed E6) $ nominalDiffTimeToSeconds timerRate
   initVty <- buildVty
   seed <- Game.Seed <$> randomIO
   void $ Brick.customMain initVty buildVty (Just tickChan) app $ MambdaCliState (Menu $ MainMenu.initState $ mainMenu seed Settings.defaultSettings) mempty

@@ -102,7 +102,7 @@ handleEvent :: Brick.BrickEvent n e -> Brick.EventM n State ()
 handleEvent (Brick.AppEvent _) = do
   paused <- Brick.gets $ (==) Paused . view #state
   unless paused $ Brick.modify $ \s ->
-    let (state, game) = runIdentity $ first boolToState <$> Game.step (s ^. #inputQueue) (s ^. #game)
+    let (state, game) = runIdentity $ first boolToState <$> Game.step 1 (s ^. #inputQueue) (s ^. #game)
         frame = runIdentity $ Game.render game
      in s & #game .~ game & #state .~ state & #currentFrame .~ frame & #inputQueue .~ Game.initInputQueue
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) = do

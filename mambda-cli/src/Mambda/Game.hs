@@ -37,6 +37,7 @@ import Data.Vector qualified as Vector
 import Data.Word (Word8)
 import Linear
 import System.Random qualified as Random
+import Data.Time qualified as Time
 
 newtype State m = State (Aztecs.World m)
 
@@ -64,7 +65,7 @@ newtype Seed = Seed Integer
   deriving (Show)
 
 foo :: Seed -> Ticks -> Seed
-foo (Seed x) y = Seed $ x + y
+foo (Seed x) y = Seed $ x
 
 data World = World
   { size :: Space
@@ -143,7 +144,7 @@ appleCollision scores appleEntityId snakeEntityId = do
   score snakeEntityId scores
   void $ Aztecs.despawn appleEntityId
   World{tick} <- Aztecs.system $ Aztecs.runQuerySingle Aztecs.query
-  spawnEntity $ if tick `mod` 5 == 0 then goldenApple else apple
+  spawnEntity apple
 
 despawnCollision :: (Monad m) => CollisionAction m
 despawnCollision _ = Aztecs.despawn
@@ -169,11 +170,11 @@ collisionSystem = do
 findCollisions :: forall m. (Monad m, Typeable m) => Position -> Aztecs.Query m (Aztecs.EntityID, Collidable m)
 findCollisions pos = fmap fst $ Aztecs.queryFilter ((==) pos . snd) $ (,) <$> ((,) <$> Aztecs.entity <*> Aztecs.query @m @(Collidable m)) <*> Aztecs.query @m @Position
 
-type Ticks = Integer
+type Ticks = Time.NominalDiffTime
 
 newtype Scores = Scores Integer
 
-newtype Lifetime = Lifetime Ticks
+newtype Lifetime = Lifetime Integer
   deriving stock (Show)
   deriving anyclass (Aztecs.Component m)
 
@@ -240,7 +241,7 @@ snakeHead playerId =
       One -> Position (V2 1 1)
       Two -> Position (V2 19 19)
 
-snakeSegment :: forall m. (Monad m, Typeable m) => PlayerId -> Aztecs.EntityID -> Space -> Ticks -> Aztecs.BundleT m
+snakeSegment :: forall m. (Monad m, Typeable m) => PlayerId -> Aztecs.EntityID -> Space -> Integer -> Aztecs.BundleT m
 snakeSegment playerId snakeHeadId pos lifetime =
   Aztecs.bundle (Position pos)
     <> Aztecs.bundle (Renderable (SnakeSegment playerId))
@@ -299,9 +300,9 @@ initWorld players seed WorldSettings{width, height} = do
 init :: (Monad m, Typeable m) => NonEmpty PlayerId -> Seed -> WorldSettings -> m (State m)
 init players seed worldSettings = State . snd <$> Aztecs.runAccess (initWorld players seed worldSettings) World.empty
 
-gameStep :: (Monad m, Typeable m) => InputQueue -> Aztecs.Access m Bool
-gameStep playerInput = do
-  timeSystem
+gameStep :: (Monad m, Typeable m) => Ticks -> InputQueue -> Aztecs.Access m Bool
+gameStep dt playerInput = do
+  timeSystem dt
   lifetimeSystem
   playerActionSystem playerInput
   snakeGhostSystem
@@ -309,8 +310,8 @@ gameStep playerInput = do
   collisionSystem
   endGameSystem
 
-timeSystem :: (Monad m) => Aztecs.Access m ()
-timeSystem = void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\w@World{tick} -> w{tick = tick + 1})
+timeSystem :: (Monad m) => Ticks -> Aztecs.Access m ()
+timeSystem dt = void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMap (\w@World{tick} -> w{tick = tick + dt})
 
 moveSystem :: (Monad m) => Aztecs.Access m ()
 moveSystem = void $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryMapWith move Aztecs.query
@@ -333,8 +334,8 @@ endGameSystem = fmap Vector.null $ Aztecs.system $ Aztecs.runQuery $ Aztecs.quer
 playerActionSystem :: (Monad m, Typeable m) => InputQueue -> Aztecs.Access m ()
 playerActionSystem (InputQueue input) = mapM_ playerAction $ Set.map (\(pId, ControlType control) -> PlayerInput (pId, control)) input
 
-step :: (Monad m, Typeable m) => InputQueue -> State m -> m (Bool, State m)
-step playerInput (State world) = second State <$> Aztecs.runAccess (gameStep playerInput) world
+step :: (Monad m, Typeable m) => Ticks -> InputQueue -> State m -> m (Bool, State m)
+step dt playerInput (State world) = second State <$> Aztecs.runAccess (gameStep dt playerInput) world
 
 playerAction :: forall m. (Monad m, Typeable m) => PlayerInput -> Aztecs.Access m ()
 playerAction (PlayerInput (playerId, ChangeDirection (SnakeDirection dir))) =

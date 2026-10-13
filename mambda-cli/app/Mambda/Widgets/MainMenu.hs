@@ -27,12 +27,14 @@ import Lens.Micro
 import Lens.Micro.Extras
 import Mambda.Widgets.Cursor qualified as Cursor
 import Mambda.Widgets.ListZipper
+import Mambda.Clock
+import Data.Time
 
 class MenuItem a where
   toMenuItem :: a -> Text.Text
 
 data State a = State
-  { tick :: Integer
+  { tick :: NominalDiffTime
   , menuItems :: ListZipper a
   }
   deriving stock (Show, Eq, Ord, Generic)
@@ -48,9 +50,9 @@ logo offset =
   logoLine attr line = Brick.withAttr attr $ Brick.str $ Text.unpack line
   logoLines = Prelude.zipWith logoLine attrs $ Text.lines $ Text.decodeUtf8 $ $(FileEmbed.embedFileRelative "data/logo.txt")
 
-handleEvent :: Brick.BrickEvent n e -> Brick.EventM n (State a) (Maybe a)
-handleEvent (Brick.AppEvent _) = do
-  Brick.modify $ #tick +~ 1
+handleEvent :: WithClock e => Brick.BrickEvent n e -> Brick.EventM n (State a) (Maybe a)
+handleEvent (Brick.AppEvent e) = do
+  Brick.modify $ #tick +~ timeElapsed e
   pure Nothing
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KDown [])) = do
   Brick.modify $ #menuItems %~ next
@@ -65,11 +67,12 @@ handleEvent _ = pure Nothing
 render :: (MenuItem a) => State a -> Brick.Widget n
 render State{menuItems, tick} =
   Brick.center $
-    Brick.vCenter (logo tick <=> Brick.str " " <=> menu)
+    Brick.vCenter (logo frame <=> Brick.str " " <=> menu)
  where
+  frame = floor (4 * nominalDiffTimeToSeconds tick)
   menu = Brick.vBox $ renderZipper f menuItems
   f False = renderMenuItem $ Brick.str " "
-  f True = renderMenuItem $ Cursor.cursorFrame tick
+  f True = renderMenuItem $ Cursor.cursorFrame frame
 
 renderMenuItem :: (MenuItem a) => Brick.Widget n -> a -> Brick.Widget n
 renderMenuItem selector menuItem = selector <+> Brick.str (Text.unpack $ " " <> toMenuItem menuItem)
