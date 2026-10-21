@@ -120,5 +120,5 @@ main = do
   drawUI :: MambdaCliState -> [Brick.Widget MambdaCliResource]
   drawUI MambdaCliState{currentScreen} = case currentScreen of
     Menu menuState -> [MainMenu.render menuState]
-    Game gameState -> [Game.render gameState]
+    Game gameState -> Game.render gameState
     Settings settingsState -> [Settings.render settingsState]

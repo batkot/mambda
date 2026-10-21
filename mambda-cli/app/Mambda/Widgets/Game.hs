@@ -17,6 +17,7 @@ import Mambda.Time qualified as Time
 
 import Brick ((<=>))
 import Brick.Widgets.Border qualified as Brick
+import Brick.Widgets.Dialog qualified as Dialog
 import Brick.Widgets.Table qualified as Table
 import Control.Monad (unless)
 import Data.Bifunctor
@@ -128,17 +129,17 @@ handleEvent (Brick.VtyEvent (Vty.EvKey k [])) = do
     Just input -> Brick.modify $ #inputQueue %~ flip Game.addInput input
 handleEvent _ = pure ()
 
-render :: State -> Brick.Widget n
+render :: (Ord n) => State -> [Brick.Widget n]
 render State{state, currentFrame = (Game.Render frame)} =
-  Brick.center $
-    Brick.vCenter $
-      Brick.border (Table.renderTable frameTable)
-        <=> Table.renderTable (borderlessTable $ Table.table [[Brick.str "SCORE", statusWidget]])
+  [ statusWidget
+  , Brick.center $ Brick.vCenter $ Brick.border (Table.renderTable frameTable)
+  ]
  where
-  statusWidget = Brick.str $ case state of
-    Finished -> "GAME OVER"
-    Paused -> "PAUSED"
-    Running -> ""
+  statusDialog = Dialog.renderDialog (Dialog.dialog Nothing Nothing 100) . Brick.padLeftRight 2 . Brick.padTopBottom 1 . Brick.str
+  statusWidget = case state of
+    Finished -> statusDialog "Game Over"
+    Paused -> statusDialog "Paused"
+    Running -> Brick.str ""
   frameTable = borderlessTable $ Table.table worldGrid
   borderlessTable = Table.columnBorders False . Table.rowBorders False . Table.surroundingBorder False
   worldGrid = Vector.toList $ Vector.toList . fmap renderGlyph <$> frame
