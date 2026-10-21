@@ -69,7 +69,7 @@ render State{menuItems, tick} =
   Brick.center $
     Brick.vCenter (logo frame <=> Brick.str " " <=> menu)
  where
-  frame = floor (4 * nominalDiffTimeToSeconds tick)
+  frame = floor (6 * nominalDiffTimeToSeconds tick)
   menu = Brick.vBox $ renderZipper f menuItems
   f False = renderMenuItem $ Brick.str " "
   f True = renderMenuItem $ Cursor.cursorFrame frame

@@ -81,7 +81,7 @@ main = do
   app =
     Brick.App
       { appDraw = drawUI
-      , appChooseCursor = \_ _ -> Nothing
+      , appChooseCursor = Brick.neverShowCursor
       , appHandleEvent = handleEvent
       , appStartEvent = pure ()
       , appAttrMap = appAttrMap
