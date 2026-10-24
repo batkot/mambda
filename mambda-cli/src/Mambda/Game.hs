@@ -1,4 +1,5 @@
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 module Mambda.Game (
   WorldSettings (..),
@@ -30,6 +31,7 @@ import Data.Bifunctor
 import Data.Foldable (traverse_)
 import Data.List.NonEmpty hiding (init)
 import Data.List.NonEmpty qualified as NonEmpty
+import Data.Map qualified as Map
 import Data.Maybe
 import Data.Set qualified as Set
 import Data.Typeable (Typeable)
@@ -39,10 +41,15 @@ import Linear
 import Mambda.Movement qualified as Movement
 import Mambda.Time qualified as Time
 import System.Random qualified as Random
+import GHC.Generics
 
 newtype State m = State (Aztecs.World m)
 
-newtype Render = Render (Vector.Vector (Vector.Vector Glyph))
+data Render = Render
+  { map :: Vector.Vector (Vector.Vector Glyph)
+  , scores :: Map.Map PlayerId Integer
+  }
+  deriving stock (Generic)
 
 data Glyph
   = Snake PlayerId
@@ -380,9 +387,11 @@ doRender :: forall m. (Monad m) => Aztecs.Access m Render
 doRender = do
   World{size = V2 width height} <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.query @m @World
   positions <- Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.query <*> Aztecs.query
+  snakes <- Aztecs.system $ Aztecs.runQuery $Aztecs.query @m @SnakeHead
   let emptyGrid = Vector.replicate (fromInteger width) $ Vector.replicate (fromInteger height) Empty
       fullGrid = Vector.foldr writeElem emptyGrid positions
-  pure $ Render fullGrid
+      scores = Map.fromList $ (\(SnakeHead pId score _) -> (pId, toInteger score)) <$> Vector.toList snakes
+  pure $ Render fullGrid scores
 
 writeElem :: (Movement.Positioned, Renderable) -> Vector.Vector (Vector.Vector Glyph) -> Vector.Vector (Vector.Vector Glyph)
 writeElem (Movement.Positioned (V2 x y), Renderable glyph) grid =

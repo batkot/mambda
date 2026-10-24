@@ -15,7 +15,7 @@ import Brick.Widgets.Center qualified as Brick
 import Mambda.Game qualified as Game
 import Mambda.Time qualified as Time
 
-import Brick ((<=>))
+import Brick ((<=>), (<+>))
 import Brick.Widgets.Border qualified as Brick
 import Brick.Widgets.Dialog qualified as Dialog
 import Brick.Widgets.Table qualified as Table
@@ -30,6 +30,7 @@ import Lens.Micro.Extras
 
 import Data.List.NonEmpty
 import Data.Map qualified as Map
+import Data.List qualified as List
 import Mambda.Widgets.Settings qualified as S
 import System.Random (randomIO)
 
@@ -39,7 +40,7 @@ data GameState = Running | Paused | Finished
 data State = State
   { game :: Game.State Identity
   , state :: GameState
-  , currentFrame :: Game.Render
+  , render :: Game.Render
   , inputQueue :: Game.InputQueue
   , keyBindings :: KeyMap
   , settings :: S.Settings
@@ -68,7 +69,7 @@ initState clockResolution players seed settings =
     { game
     , state = Running
     , inputQueue = Game.initInputQueue
-    , currentFrame
+    , render
     , keyBindings
     , settings
     , players
@@ -76,7 +77,7 @@ initState clockResolution players seed settings =
     }
  where
   game = runIdentity $ Game.init (Time.newClock clockResolution) players seed worldSettings
-  currentFrame = runIdentity $ Game.render game
+  render = runIdentity $ Game.render game
   worldSettings = worldSizeToSettings $ settings ^. #worldSize
   keyBindings = mkKeyBindings $ settings ^. #keyBindings
 
@@ -108,7 +109,7 @@ handleEvent (Brick.AppEvent _) = do
   unless paused $ Brick.modify $ \s ->
     let (state, game) = runIdentity $ first boolToState <$> Game.step (Time.mkTime 1) (s ^. #inputQueue) (s ^. #game)
         frame = runIdentity $ Game.render game
-     in s & #game .~ game & #state .~ state & #currentFrame .~ frame & #inputQueue .~ Game.initInputQueue
+     in s & #game .~ game & #state .~ state & #render .~ frame & #inputQueue .~ Game.initInputQueue
 handleEvent (Brick.VtyEvent (Vty.EvKey Vty.KEnter [])) = do
   gameStatus <- Brick.gets (^. #state)
   case gameStatus of
@@ -130,9 +131,9 @@ handleEvent (Brick.VtyEvent (Vty.EvKey k [])) = do
 handleEvent _ = pure ()
 
 render :: (Ord n) => State -> [Brick.Widget n]
-render State{state, currentFrame = (Game.Render frame)} =
+render State{state, render} =
   [ statusWidget
-  , Brick.center $ Brick.vCenter $ Brick.border (Table.renderTable frameTable)
+  , Brick.center $ Brick.vCenter $ Brick.border (Table.renderTable frameTable) <=> scores
   ]
  where
   statusDialog = Dialog.renderDialog (Dialog.dialog Nothing Nothing 100) . Brick.padLeftRight 2 . Brick.padTopBottom 1 . Brick.str
@@ -142,7 +143,9 @@ render State{state, currentFrame = (Game.Render frame)} =
     Running -> Brick.str ""
   frameTable = borderlessTable $ Table.table worldGrid
   borderlessTable = Table.columnBorders False . Table.rowBorders False . Table.surroundingBorder False
-  worldGrid = Vector.toList $ Vector.toList . fmap renderGlyph <$> frame
+  worldGrid = Vector.toList $ Vector.toList . fmap renderGlyph <$> render ^. #map
+  playerScore (playerId, score) = Brick.str (show playerId) <=> Brick.str (show score)
+  scores = Brick.padLeftRight 1 $ Brick.vLimit 4 $ Brick.hLimit 40 $ foldl' (<+>) (Brick.str "") $ List.intersperse (Brick.fill ' ') $ fmap playerScore $ Map.toList $ render ^. #scores
 
 attributeMap :: Brick.AttrMap
 attributeMap =
