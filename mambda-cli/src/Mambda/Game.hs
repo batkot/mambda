@@ -34,20 +34,28 @@ import Data.List.NonEmpty qualified as NonEmpty
 import Data.Map qualified as Map
 import Data.Maybe
 import Data.Set qualified as Set
+import Data.Text qualified as Text
 import Data.Typeable (Typeable)
 import Data.Vector qualified as Vector
 import Data.Word (Word8)
+import GHC.Generics
 import Linear
 import Mambda.Movement qualified as Movement
 import Mambda.Time qualified as Time
 import System.Random qualified as Random
-import GHC.Generics
 
 newtype State m = State (Aztecs.World m)
 
 data Render = Render
   { map :: Vector.Vector (Vector.Vector Glyph)
-  , scores :: Map.Map PlayerId Integer
+  , scores :: [PlayerView]
+  }
+  deriving stock (Generic)
+
+data PlayerView = PlayerView
+  { playerId :: PlayerId
+  , score :: Integer
+  , special :: Maybe Text.Text
   }
   deriving stock (Generic)
 
@@ -102,7 +110,10 @@ newtype Collidable m = Collidable (CollisionAction m)
 
 type CollisionAction m = Aztecs.EntityID -> Aztecs.EntityID -> Aztecs.Access m ()
 
-newtype Special m = Special' (Aztecs.EntityID -> Aztecs.Access m ())
+data Special m = Special'
+  { name :: Text.Text
+  , action :: (Aztecs.EntityID -> Aztecs.Access m ())
+  }
   deriving anyclass (Aztecs.Component m)
 
 item :: forall m. (Monad m, Typeable m) => Special m -> Aztecs.BundleT m
@@ -226,11 +237,12 @@ data WorldSettings = WorldSettings
   , height :: Word8
   }
 
-snakeHead :: (Monad m) => Time.Clock -> PlayerId -> Aztecs.BundleT m
+snakeHead :: forall m. (Monad m, Typeable m) => Time.Clock -> PlayerId -> Aztecs.BundleT m
 snakeHead clock playerId =
   Aztecs.bundle (SnakeHead playerId 3 Nothing)
     <> Movement.moving clock startPos (Movement.Velocity Movement.down (Time.mkTime startSpeed))
     <> Aztecs.bundle (Renderable (Snake playerId))
+    <> Aztecs.bundle (emptySpecial @m)
  where
   startPos =
     case playerId of
@@ -347,14 +359,14 @@ playerAction (PlayerInput (pId, Special)) = do
   snakes <- fmap (fmap fst) $ Aztecs.system $ Aztecs.runQuery $ Aztecs.queryFilter (\(_, SnakeHead{playerId}) -> playerId == pId) ((,) <$> Aztecs.entity <*> Aztecs.query)
   forM_ snakes $ \snakeEntityId -> do
     special <- Aztecs.lookup snakeEntityId
-    forM_ special $ \(Special' specialAction) -> do
+    forM_ special $ \(Special' _ specialAction) -> do
       specialAction snakeEntityId
       -- Component removal is broken in Aztecs
       Aztecs.insert snakeEntityId $ Aztecs.bundle $ emptySpecial @m
 
 laserItem :: forall m. (Monad m, Typeable m) => Aztecs.BundleT m
 laserItem =
-  item . Special' @m $ \snakeEntityId -> do
+  item . Special' @m "Laser" $ \snakeEntityId -> do
     (posMb, velMb) <- (,) <$> Aztecs.lookup snakeEntityId <*> Aztecs.lookup snakeEntityId
     fromMaybe (pure ()) $ fireLaser <$> posMb <*> fmap (\(Movement.Moving v _) -> v) velMb
 
@@ -373,25 +385,26 @@ fireLaser (Movement.Positioned pos) (Movement.Velocity (Movement.Direction dir) 
 
 bombItem :: forall m. (Monad m, Typeable m) => Aztecs.BundleT m
 bombItem =
-  item . Special' @m $ \snakeEntityId -> do
+  item . Special' @m "Bomb" $ \snakeEntityId -> do
     (lastSegmentPosition, _, _) <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.queryFilter (\(Movement.Positioned _, SnakeSegment' x, Aztecs.Parent parentId) -> x == 1 && parentId == snakeEntityId) ((,,) <$> Aztecs.query <*> Aztecs.query <*> Aztecs.query)
     Aztecs.spawn_ $ laserItem <> Aztecs.bundle lastSegmentPosition <> Aztecs.bundle (Renderable Laser)
 
 emptySpecial :: forall m. (Monad m) => Special m
-emptySpecial = Special' @m $ const $ pure ()
+emptySpecial = Special' @m "" $ const $ pure ()
 
-render :: forall m. (Monad m) => State m -> m Render
+render :: forall m. (Monad m, Typeable m) => State m -> m Render
 render (State world) = fst <$> Aztecs.runAccess doRender world
 
-doRender :: forall m. (Monad m) => Aztecs.Access m Render
+doRender :: forall m. (Monad m, Typeable m) => Aztecs.Access m Render
 doRender = do
   World{size = V2 width height} <- Aztecs.system $ Aztecs.runQuerySingle $ Aztecs.query @m @World
   positions <- Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.query <*> Aztecs.query
-  snakes <- Aztecs.system $ Aztecs.runQuery $Aztecs.query @m @SnakeHead
+  snakes <- Aztecs.system $ Aztecs.runQuery $ (,) <$> Aztecs.query @m @SnakeHead <*> Aztecs.queryMaybe @m @(Special m)
   let emptyGrid = Vector.replicate (fromInteger width) $ Vector.replicate (fromInteger height) Empty
       fullGrid = Vector.foldr writeElem emptyGrid positions
-      scores = Map.fromList $ (\(SnakeHead pId score _) -> (pId, toInteger score)) <$> Vector.toList snakes
-  pure $ Render fullGrid scores
+      mkPlayerView (SnakeHead pId score _, specialMb) = PlayerView pId (toInteger score) $ fmap (\(Special' n _) -> n) specialMb
+      players = mkPlayerView <$> Vector.toList snakes
+  pure $ Render fullGrid players
 
 writeElem :: (Movement.Positioned, Renderable) -> Vector.Vector (Vector.Vector Glyph) -> Vector.Vector (Vector.Vector Glyph)
 writeElem (Movement.Positioned (V2 x y), Renderable glyph) grid =

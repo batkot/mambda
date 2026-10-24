@@ -36,6 +36,7 @@ dependencies:
 - extra
 - linear
 - random
+- text
 - time
 - vector
 

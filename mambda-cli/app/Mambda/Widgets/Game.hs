@@ -15,7 +15,7 @@ import Brick.Widgets.Center qualified as Brick
 import Mambda.Game qualified as Game
 import Mambda.Time qualified as Time
 
-import Brick ((<=>), (<+>))
+import Brick ((<+>), (<=>))
 import Brick.Widgets.Border qualified as Brick
 import Brick.Widgets.Dialog qualified as Dialog
 import Brick.Widgets.Table qualified as Table
@@ -28,9 +28,10 @@ import Graphics.Vty qualified as Vty
 import Lens.Micro ((%~), (&), (.~), (^.))
 import Lens.Micro.Extras
 
+import Data.List qualified as List
 import Data.List.NonEmpty
 import Data.Map qualified as Map
-import Data.List qualified as List
+import Data.Maybe qualified as Maybe
 import Mambda.Widgets.Settings qualified as S
 import System.Random (randomIO)
 
@@ -144,8 +145,11 @@ render State{state, render} =
   frameTable = borderlessTable $ Table.table worldGrid
   borderlessTable = Table.columnBorders False . Table.rowBorders False . Table.surroundingBorder False
   worldGrid = Vector.toList $ Vector.toList . fmap renderGlyph <$> render ^. #map
-  playerScore (playerId, score) = Brick.str (show playerId) <=> Brick.str (show score)
-  scores = Brick.padLeftRight 1 $ Brick.vLimit 4 $ Brick.hLimit 40 $ foldl' (<+>) (Brick.str "") $ List.intersperse (Brick.fill ' ') $ fmap playerScore $ Map.toList $ render ^. #scores
+  playerScore playerView =
+    Brick.str (show $ playerView ^. #playerId)
+      <=> Brick.str (show $ playerView ^. #score)
+      <=> Brick.txt (Maybe.fromMaybe "" $ playerView ^. #special)
+  scores = Brick.padLeftRight 1 $ Brick.hLimit 40 $ foldl' (<+>) (Brick.str "") $ List.intersperse (Brick.vLimit 1 $ Brick.fill ' ') $ fmap playerScore $ render ^. #scores
 
 attributeMap :: Brick.AttrMap
 attributeMap =
